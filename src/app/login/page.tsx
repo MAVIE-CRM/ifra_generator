@@ -38,8 +38,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#050505] p-6">
-      <div className="w-full max-w-md space-y-8 animate-in fade-in zoom-in-95 duration-700">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#050505] p-6 overflow-y-auto">
+      <div className="w-full max-w-md space-y-8 animate-in fade-in zoom-in-95 duration-700 py-10">
         <div className="text-center space-y-4">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-primary/10 text-primary mb-2 shadow-2xl shadow-primary/20">
             <ShieldCheck className="w-10 h-10" />
@@ -48,7 +48,7 @@ export default function LoginPage() {
           <p className="text-white/40 text-xs font-bold uppercase tracking-[0.2em]">IFRA_GENERATOR Security Gate</p>
         </div>
 
-        <form onSubmit={handleLogin} className="luxury-card p-8 bg-white/[0.03] border-white/5 space-y-6">
+        <form onSubmit={handleLogin} className="luxury-card p-8 bg-white/[0.03] border-white/5 space-y-6 relative z-[101]">
           <div className="space-y-2">
             <label className="text-[10px] font-black uppercase tracking-widest text-white/30 px-1">Password della Piattaforma</label>
             <div className="relative group">
@@ -56,8 +56,9 @@ export default function LoginPage() {
               <input
                 type="password"
                 required
-                className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm text-white focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/30 transition-all"
-                placeholder="••••••••••••"
+                autoFocus
+                className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm text-white focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/30 transition-all placeholder:text-white/10"
+                placeholder="Inserisci password..."
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
