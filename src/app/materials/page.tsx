@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Database, Search, Plus, ExternalLink, FileText, RefreshCw, CheckCircle2, AlertCircle, HelpCircle, ChevronDown, ChevronUp, Zap, Wind, Eye, Quote, Trash2, ShieldCheck } from 'lucide-react';
+import { Database, Search, Plus, ExternalLink, FileText, RefreshCw, CheckCircle2, AlertCircle, HelpCircle, ChevronDown, ChevronUp, Zap, Wind, Eye, Quote, Trash2, ShieldCheck, Download, X } from 'lucide-react';
 
 export default function MaterialsPage() {
   const [materials, setMaterials] = useState<any[]>([]);
@@ -107,13 +107,22 @@ export default function MaterialsPage() {
           <h1 className="text-3xl font-bold tracking-tight text-gradient">Material Database</h1>
           <p className="text-foreground/60 mt-2">Gestisci la tua collezione e sincronizza i dati normativi.</p>
         </div>
-        <Link 
-          href="/materials/new"
-          className="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl font-medium hover:bg-primary/90 transition-all shadow-md shadow-primary/20"
-        >
-          <Plus className="w-4 h-4" />
-          Add Material
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link 
+            href="/import/fraterworks-bulk"
+            className="flex items-center gap-2 bg-foreground/5 text-foreground/70 px-5 py-2.5 rounded-xl font-medium hover:bg-foreground/10 transition-all border border-border"
+          >
+            <Download className="w-4 h-4" />
+            Supplier Bulk Sync
+          </Link>
+          <Link 
+            href="/materials/new"
+            className="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl font-medium hover:bg-primary/90 transition-all shadow-md shadow-primary/20"
+          >
+            <Plus className="w-4 h-4" />
+            Add Material
+          </Link>
+        </div>
       </div>
 
       {message && (
@@ -336,8 +345,5 @@ export default function MaterialsPage() {
   );
 }
 
-function X({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
   );
 }
