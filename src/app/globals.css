@@ -1,26 +1,68 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fdfcfb;
+  --foreground: #1a1a1a;
+  --primary: #064e3b; /* Deep Emerald */
+  --accent: #d4af37; /* Gold */
+  --card: #ffffff;
+  --border: #e5e7eb;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-primary: var(--primary);
+  --color-accent: var(--accent);
+  --color-card: var(--card);
+  --color-border: var(--border);
+  
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0f172a; /* Deep Slate */
+    --foreground: #f8fafc;
+    --primary: #10b981; /* Brighter Emerald */
+    --accent: #fbbf24; /* Amber/Gold */
+    --card: #1e293b;
+    --border: #334155;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Glassmorphism utility */
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Luxury card effect */
+.luxury-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+}
+
+.luxury-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Gradient text */
+.text-gradient {
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }

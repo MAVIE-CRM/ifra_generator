@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Material {
+  id          String   @id @default(cuid())
+  name        String
+  cas         String?  @unique
+  description String?
+  descriptionIt String?
+  notes       String?
+  sourceUrl   String?
+  supplier    String?
+  
+  // IFRA Standards Library Fields
+  synonyms       String?
+  recommendation String?
+  
+  // Fraterworks & Technical Fields
+  referenceCode String?
+  appearance    String?
+  appearanceIt  String?
+  odourProfile  String?
+  odourProfileIt String?
+  longevity     String?
+  uses          String?
+  usesIt        String?
+  unNumber      String?
+  ifraAmendment String?
+
+  // IFRA Tracking Fields
+  ifraStatus        String?   // "found", "not_found", "to_verify"
+  ifraLastCheckedAt DateTime?
+  ifraSourceUrl     String?
+  ifraNotes         String?
+  ifraStandardTitle String?
+  ifraStandardType  String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  documents     Document[]
+  ifraLimits    IfraLimit[]
+  fragranceItems FragranceItem[]
+}
+
+model IfraLimit {
+  id           String   @id @default(cuid())
+  materialId   String
+  amendment    String?
+  category     String
+  limit        Float?   // Percentuale reale (es: 2.4)
+  limitText    String?  // Testo visualizzato (es: "2.4%" o "No Restriction")
+  isNoRestriction Boolean @default(false)
+  context      String?
+  isRestricted Boolean  @default(false)
+  source       String?  // "IFRA", "Fraterworks", etc.
+  sourceUrl    String?
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  material     Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@unique([materialId, category, amendment, source])
+}
+
+model Document {
+  id         String   @id @default(cuid())
+  materialId String
+  type       String
+  url        String
+  name       String?
+  createdAt  DateTime @default(now())
+
+  material   Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+}
+
+model Fragrance {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items       FragranceItem[]
+}
+
+model FragranceItem {
+  id          String   @id @default(cuid())
+  fragranceId String
+  materialId  String
+  parts       Float
+
+  fragrance   Fragrance @relation(fields: [fragranceId], references: [id], onDelete: Cascade)
+  material    Material  @relation(fields: [materialId], references: [id])
+}
