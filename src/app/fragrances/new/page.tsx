@@ -90,11 +90,31 @@ export default function NewFragrancePage() {
         const materialName = match[1].trim();
         const parts = parseFloat(match[2].replace(',', '.'));
 
-        // Cerca il materiale nel database locale (caricato in `materials`)
-        const foundMaterial = materials.find(m => 
-          m.name.toLowerCase() === materialName.toLowerCase() || 
-          m.synonyms?.toLowerCase().includes(materialName.toLowerCase())
-        );
+        // Normalizzazione per confronto "Smart"
+        const cleanSearch = materialName.toLowerCase()
+          .replace(/[®™]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        // Cerca il materiale nel database con logica a cascata
+        const foundMaterial = materials.find(m => {
+          const mName = m.name.toLowerCase().replace(/[®™]/g, '').trim();
+          const mSyns = (m.synonyms || '').toLowerCase().replace(/[®™]/g, '').trim();
+          
+          // 1. Match Esatto (senza simboli)
+          if (mName === cleanSearch) return true;
+          
+          // 2. Il nome nel DB contiene la ricerca (es: "Ambrox Super" contiene "Ambrox")
+          if (mName.includes(cleanSearch) && cleanSearch.length > 3) return true;
+          
+          // 3. La ricerca contiene il nome nel DB (es: "Ambrox Super" cercato, "Ambrox" nel DB)
+          if (cleanSearch.includes(mName) && mName.length > 3) return true;
+
+          // 4. Match nei sinonimi
+          if (mSyns.includes(cleanSearch) && cleanSearch.length > 3) return true;
+
+          return false;
+        });
 
         if (foundMaterial) {
           newItems.push({ materialId: foundMaterial.id, parts });
