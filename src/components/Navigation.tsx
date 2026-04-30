@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Beaker, Database, FileUp, List, Home } from 'lucide-react';
+import { Beaker, Database, FileUp, List, Home, LogOut } from 'lucide-react';
 
 const navItems = [
   { name: 'Home', href: '/', icon: Home },
@@ -41,6 +41,17 @@ export function Navigation() {
               </Link>
             );
           })}
+          
+          <button
+            onClick={async () => {
+              await fetch('/api/auth/logout', { method: 'POST' });
+              window.location.href = '/login';
+            }}
+            className="flex items-center gap-2 text-sm font-bold text-red-400/70 hover:text-red-400 transition-colors border-l border-white/10 pl-8 ml-2"
+          >
+            <LogOut className="w-4 h-4" />
+            Esci
+          </button>
         </div>
       </div>
     </nav>
