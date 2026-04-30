@@ -31,6 +31,7 @@ model Material {
   uses          String?
   usesIt        String?
   unNumber      String?
+  fraterworksSlug String? @unique
   ifraAmendment String?
 
   // IFRA Tracking Fields
