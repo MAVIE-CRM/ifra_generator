@@ -57,7 +57,7 @@ export default function LoginPage() {
                 type="password"
                 required
                 autoFocus
-                className="w-full bg-white/10 border border-white/20 rounded-2xl pl-12 pr-4 py-4 text-sm text-white focus:outline-none focus:ring-4 focus:ring-primary/40 focus:border-primary transition-all placeholder:text-white/20"
+                className="w-full bg-[#0a0a0a] border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm text-white focus:outline-none focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500/50 transition-all placeholder:text-white/20 shadow-inner"
                 placeholder="Digita la password..."
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
