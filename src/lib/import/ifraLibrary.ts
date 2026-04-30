@@ -106,9 +106,11 @@ export async function syncMaterialWithIfra(materialId: string) {
       for (const [category, limit] of Object.entries(match.limits)) {
         await prisma.ifraLimit.upsert({
           where: {
-            materialId_category: {
+            materialId_category_amendment_source: {
               materialId,
               category,
+              amendment: match.amendment || "Unknown",
+              source: "IFRA Library",
             }
           },
           update: { limit },
@@ -116,6 +118,8 @@ export async function syncMaterialWithIfra(materialId: string) {
             materialId,
             category,
             limit,
+            amendment: match.amendment || "Unknown",
+            source: "IFRA Library",
           }
         });
       }

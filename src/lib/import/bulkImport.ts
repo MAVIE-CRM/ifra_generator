@@ -7,7 +7,7 @@ export async function importFromCSV(fileContent: string) {
     Papa.parse(fileContent, {
       header: true,
       skipEmptyLines: true,
-      complete: async (results) => {
+      complete: async (results: any) => {
         try {
           const materials = await processImportData(results.data);
           resolve(materials);
@@ -65,9 +65,11 @@ async function processImportData(data: any[]) {
       for (const entry of limitEntries) {
         await prisma.ifraLimit.upsert({
           where: {
-            materialId_category: {
+            materialId_category_amendment_source: {
               materialId: entry.materialId,
               category: entry.category,
+              amendment: "Bulk",
+              source: "CSV/Excel",
             },
           },
           update: { limit: entry.limit },
@@ -75,6 +77,8 @@ async function processImportData(data: any[]) {
             materialId: entry.materialId,
             category: entry.category,
             limit: entry.limit,
+            amendment: "Bulk",
+            source: "CSV/Excel",
           },
         });
       }
