@@ -83,9 +83,9 @@ export default function NewFragrancePage() {
     const newItems: any[] = [];
 
     lines.forEach(line => {
-      // Regex per estrarre nome e parti/percentuale
-      // Esempio: "Ambrox® Super 45%" -> match[1]="Ambrox® Super", match[2]="45"
-      const match = line.match(/^(.+?)\s+([\d.,]+)%?\s*$/);
+      // Regex più flessibile: Nome (qualsiasi cosa) + Spazio/Tab + Numero (con virgola o punto) + % opzionale
+      // Funziona anche con spazi multipli
+      const match = line.match(/^(.+?)\s+([\d.,]+)\s*%?\s*$/);
       if (match) {
         const materialName = match[1].trim();
         const parts = parseFloat(match[2].replace(',', '.'));
@@ -152,21 +152,59 @@ export default function NewFragrancePage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Editor Area */}
         <div className="lg:col-span-8 space-y-6">
-          <div className="luxury-card p-8 space-y-4 bg-card/30 backdrop-blur-xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-4">
+          {/* Smart Paste Section - ORA SOPRA IL TITOLO */}
+          <div className="luxury-card p-6 bg-primary/5 border-primary/20 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-primary">
+                <Zap className="w-5 h-5 fill-primary/20" />
+                <h3 className="text-xs font-black uppercase tracking-widest">Smart Formula Paste</h3>
+              </div>
               <button 
                 onClick={() => setIsSmartPasteOpen(!isSmartPasteOpen)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${isSmartPasteOpen ? 'bg-primary text-white' : 'bg-primary/10 text-primary hover:bg-primary/20'}`}
+                className="text-[10px] font-bold uppercase text-primary hover:underline"
               >
-                <Zap className="w-3 h-3" />
-                Smart Paste
+                {isSmartPasteOpen ? 'Chiudi' : 'Apri Importatore'}
               </button>
             </div>
+            
+            {isSmartPasteOpen ? (
+              <div className="space-y-4 animate-in fade-in zoom-in-95 duration-300">
+                <textarea
+                  placeholder={"Esempio:\nAmbrox Super 45%\nBenzaldehyde 8%\nIso E Super 20%"}
+                  className="w-full h-48 bg-background border border-primary/20 rounded-2xl p-4 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/20 custom-scrollbar shadow-inner"
+                  value={smartPasteText}
+                  onChange={(e) => setSmartPasteText(e.target.value)}
+                />
+                <div className="flex gap-3">
+                  <button 
+                    onClick={handleSmartPaste}
+                    className="flex-1 bg-primary text-white py-4 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+                  >
+                    Analizza e Aggiungi alla Formula
+                  </button>
+                  <button 
+                    onClick={() => { setSmartPasteText(''); setIsSmartPasteOpen(false); }}
+                    className="px-6 py-4 bg-foreground/5 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-foreground/10"
+                  >
+                    Annulla
+                  </button>
+                </div>
+                <p className="text-[9px] text-foreground/40 italic text-center">
+                  Incolla la tua formula completa. Il sistema riconoscerà automaticamente nomi e dosaggi.
+                </p>
+              </div>
+            ) : (
+              <p className="text-[10px] text-foreground/40 italic">
+                Hai una formula in formato testo? Clicca su <strong>Apri Importatore</strong> per incollarla velocemente.
+              </p>
+            )}
+          </div>
 
+          <div className="luxury-card p-8 space-y-4 bg-card/30 backdrop-blur-xl relative overflow-hidden">
             <input
               type="text"
               placeholder="Nome della Fragranza"
-              className="w-full text-3xl font-black bg-transparent border-none focus:outline-none placeholder:text-foreground/10 pr-32"
+              className="w-full text-3xl font-black bg-transparent border-none focus:outline-none placeholder:text-foreground/10"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -179,32 +217,6 @@ export default function NewFragrancePage() {
                  onChange={(e) => setDescription(e.target.value)}
                />
             </div>
-
-            {isSmartPasteOpen && (
-              <div className="mt-6 pt-6 border-t border-primary/10 space-y-4 animate-in fade-in slide-in-from-top-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-primary">
-                    <Zap className="w-4 h-4" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Incolla Formula (Nome + %)</span>
-                  </div>
-                  <button onClick={() => setIsSmartPasteOpen(false)} className="text-foreground/20 hover:text-foreground/40">
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-                <textarea
-                  placeholder={"Ambrox Super 45%\nBenzaldehyde 8%\n..."}
-                  className="w-full h-40 bg-foreground/5 border border-primary/10 rounded-2xl p-4 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/20 custom-scrollbar"
-                  value={smartPasteText}
-                  onChange={(e) => setSmartPasteText(e.target.value)}
-                />
-                <button 
-                  onClick={handleSmartPaste}
-                  className="w-full bg-primary text-white py-3 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
-                >
-                  Analizza e Aggiungi
-                </button>
-              </div>
-            )}
           </div>
 
           <div className="luxury-card overflow-hidden shadow-2xl shadow-primary/5">
