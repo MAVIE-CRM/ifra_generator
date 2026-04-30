@@ -13,6 +13,8 @@ export default function NewFragrancePage() {
   const [selectedItems, setSelectedItems] = useState<any[]>([]);
   const [category, setCategory] = useState('4'); // Default Fine Fragrance
   const [calculation, setCalculation] = useState<IfraCalculationResult | null>(null);
+  const [smartPasteText, setSmartPasteText] = useState('');
+  const [isSmartPasteOpen, setIsSmartPasteOpen] = useState(false);
 
   useEffect(() => {
     fetch('/api/materials')
@@ -74,6 +76,43 @@ export default function NewFragrancePage() {
     }
   };
 
+  const handleSmartPaste = () => {
+    if (!smartPasteText.trim()) return;
+
+    const lines = smartPasteText.split('\n').filter(line => line.trim());
+    const newItems: any[] = [];
+
+    lines.forEach(line => {
+      // Regex per estrarre nome e parti/percentuale
+      // Esempio: "Ambrox® Super 45%" -> match[1]="Ambrox® Super", match[2]="45"
+      const match = line.match(/^(.+?)\s+([\d.,]+)%?\s*$/);
+      if (match) {
+        const materialName = match[1].trim();
+        const parts = parseFloat(match[2].replace(',', '.'));
+
+        // Cerca il materiale nel database locale (caricato in `materials`)
+        const foundMaterial = materials.find(m => 
+          m.name.toLowerCase() === materialName.toLowerCase() || 
+          m.synonyms?.toLowerCase().includes(materialName.toLowerCase())
+        );
+
+        if (foundMaterial) {
+          newItems.push({ materialId: foundMaterial.id, parts });
+        } else {
+          // Se non trovato, aggiungi comunque una riga vuota con il nome cercato come nota?
+          // Per ora, lo aggiungiamo come riga da selezionare manualmente ma con le parti già impostate
+          newItems.push({ materialId: '', parts, placeholderName: materialName });
+        }
+      }
+    });
+
+    if (newItems.length > 0) {
+      setSelectedItems([...selectedItems, ...newItems]);
+      setSmartPasteText('');
+      setIsSmartPasteOpen(false);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -113,11 +152,21 @@ export default function NewFragrancePage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Editor Area */}
         <div className="lg:col-span-8 space-y-6">
-          <div className="luxury-card p-8 space-y-4 bg-card/30 backdrop-blur-xl">
+          <div className="luxury-card p-8 space-y-4 bg-card/30 backdrop-blur-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4">
+              <button 
+                onClick={() => setIsSmartPasteOpen(!isSmartPasteOpen)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${isSmartPasteOpen ? 'bg-primary text-white' : 'bg-primary/10 text-primary hover:bg-primary/20'}`}
+              >
+                <Zap className="w-3 h-3" />
+                Smart Paste
+              </button>
+            </div>
+
             <input
               type="text"
               placeholder="Nome della Fragranza"
-              className="w-full text-3xl font-black bg-transparent border-none focus:outline-none placeholder:text-foreground/10"
+              className="w-full text-3xl font-black bg-transparent border-none focus:outline-none placeholder:text-foreground/10 pr-32"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -130,6 +179,32 @@ export default function NewFragrancePage() {
                  onChange={(e) => setDescription(e.target.value)}
                />
             </div>
+
+            {isSmartPasteOpen && (
+              <div className="mt-6 pt-6 border-t border-primary/10 space-y-4 animate-in fade-in slide-in-from-top-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-primary">
+                    <Zap className="w-4 h-4" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Incolla Formula (Nome + %)</span>
+                  </div>
+                  <button onClick={() => setIsSmartPasteOpen(false)} className="text-foreground/20 hover:text-foreground/40">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <textarea
+                  placeholder={"Ambrox Super 45%\nBenzaldehyde 8%\n..."}
+                  className="w-full h-40 bg-foreground/5 border border-primary/10 rounded-2xl p-4 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/20 custom-scrollbar"
+                  value={smartPasteText}
+                  onChange={(e) => setSmartPasteText(e.target.value)}
+                />
+                <button 
+                  onClick={handleSmartPaste}
+                  className="w-full bg-primary text-white py-3 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+                >
+                  Analizza e Aggiungi
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="luxury-card overflow-hidden shadow-2xl shadow-primary/5">
