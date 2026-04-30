@@ -7,11 +7,12 @@ export function middleware(request: NextRequest) {
 
   // 1. Pagine pubbliche
   const isLoginPage = pathname === '/login';
+  const isRootPage = pathname === '/';
   const isAuthApi = pathname.startsWith('/api/auth');
   const isHealthCheck = pathname === '/api/health';
   const isPublicAsset = pathname.startsWith('/_next') || pathname.startsWith('/favicon.ico');
 
-  if (isLoginPage || isAuthApi || isHealthCheck || isPublicAsset) {
+  if (isLoginPage || isRootPage || isAuthApi || isHealthCheck || isPublicAsset) {
     return NextResponse.next();
   }
 
