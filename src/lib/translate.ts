@@ -1,5 +1,5 @@
 /**
- * Servizio di traduzione multi-livello (LibreTranslate + MyMemory)
+ * Motore di traduzione con diagnostica avanzata e fallback MyMemory
  */
 
 export async function translateToItalian(text: string | null): Promise<string | null> {
@@ -8,48 +8,67 @@ export async function translateToItalian(text: string | null): Promise<string | 
   const original = text.trim();
   const libreUrl = process.env.LIBRETRANSLATE_URL || "https://libretranslate.de/translate";
 
-  console.log("TRANSLATING (Level 1 - LibreTranslate):", original.substring(0, 40) + "...");
+  console.log("--- START TRANSLATION ATTEMPT ---");
+  console.log("ORIGINAL:", original.substring(0, 50) + "...");
 
+  // 1. TENTATIVO LIBRETRANSLATE
   try {
-    // TENTATIVO 1: LibreTranslate
-    const libreRes = await fetch(libreUrl, {
+    console.log("TRYING LIBRETRANSLATE:", libreUrl);
+    const res = await fetch(libreUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ q: original, source: "en", target: "it", format: "text" }),
+      body: JSON.stringify({
+        q: original,
+        source: "en",
+        target: "it",
+        format: "text"
+      }),
+      next: { revalidate: 0 }
     });
 
-    if (libreRes.ok) {
-      const data = await libreRes.json();
-      const translated = data.translatedText;
-      if (translated && translated.toLowerCase() !== original.toLowerCase()) {
-        console.log("SUCCESS (LibreTranslate):", translated.substring(0, 40) + "...");
-        return translated;
+    const raw = await res.text();
+    console.log("LIBRETRANSLATE STATUS:", res.status);
+    
+    if (res.ok) {
+      try {
+        const data = JSON.parse(raw);
+        const translated = data.translatedText;
+        if (translated && translated.toLowerCase() !== original.toLowerCase()) {
+          console.log("LIBRETRANSLATE SUCCESS:", translated.substring(0, 50) + "...");
+          return translated;
+        }
+        console.log("LIBRETRANSLATE RETURNED SAME TEXT OR EMPTY");
+      } catch (e) {
+        console.error("LIBRETRANSLATE JSON PARSE ERROR:", raw);
       }
+    } else {
+      console.log("LIBRETRANSLATE ERROR RAW:", raw);
     }
-  } catch (error) {
-    console.error("LibreTranslate Level 1 failed, trying Level 2...");
+  } catch (error: any) {
+    console.error("LIBRETRANSLATE FETCH CRASH:", error.message);
   }
 
-  // TENTATIVO 2: MyMemory API (Fallback gratuito)
+  // 2. TENTATIVO MYMEMORY (Fallback)
   try {
-    console.log("TRANSLATING (Level 2 - MyMemory):", original.substring(0, 40) + "...");
+    console.log("TRYING MYMEMORY FALLBACK...");
     const myMemoryUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(original)}&langpair=en|it`;
     
-    const myMemoryRes = await fetch(myMemoryUrl);
-    if (myMemoryRes.ok) {
-      const data = await myMemoryRes.json();
-      const translated = data.responseData?.translatedText;
-      
+    const res = await fetch(myMemoryUrl, { next: { revalidate: 0 } });
+    const data = await res.json();
+    console.log("MYMEMORY RAW:", JSON.stringify(data).substring(0, 200) + "...");
+
+    if (res.ok && data.responseData) {
+      const translated = data.responseData.translatedText;
       if (translated && translated.toLowerCase() !== original.toLowerCase() && !translated.includes("MYMEMORY WARNING")) {
-        console.log("SUCCESS (MyMemory):", translated.substring(0, 40) + "...");
+        console.log("MYMEMORY SUCCESS:", translated.substring(0, 50) + "...");
         return translated;
       }
+      console.log("MYMEMORY RETURNED INVALID TEXT:", translated);
     }
-  } catch (error) {
-    console.error("MyMemory Level 2 failed.");
+  } catch (error: any) {
+    console.error("MYMEMORY FETCH CRASH:", error.message);
   }
 
-  // Se tutto fallisce o la traduzione è identica, ritorniamo null
-  console.log("TRANSLATION UNAVAILABLE: Returning null");
+  console.log("--- TRANSLATION FAILED: ALL SERVICES UNAVAILABLE ---");
   return null;
 }

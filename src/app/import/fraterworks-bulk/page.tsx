@@ -389,6 +389,61 @@ export default function FraterworksBulkPage() {
           </div>
         </div>
       </div>
+
+      {/* STRUMENTO DI DIAGNOSI TRADUZIONE */}
+      <div className="mt-12 p-8 bg-slate-50 rounded-3xl border border-slate-200 shadow-sm max-w-4xl mx-auto w-full">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-3 bg-emerald-100 text-emerald-600 rounded-2xl">
+            <Languages className="w-6 h-6" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">Diagnosi Traduzione Libera</h2>
+            <p className="text-sm text-slate-500">Testa i servizi di traduzione (LibreTranslate / MyMemory)</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <textarea 
+            id="test-translate-input"
+            className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-sm min-h-[100px] focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+            placeholder="Inserisci un testo in inglese da tradurre..."
+          />
+          <button 
+            onClick={async () => {
+              const text = (document.getElementById('test-translate-input') as HTMLTextAreaElement).value;
+              if (!text) return alert("Inserisci un testo");
+              
+              const btn = document.getElementById('btn-test-translate');
+              if (btn) btn.innerText = "Test in corso...";
+              
+              try {
+                const res = await fetch('/api/translate/test', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ text })
+                });
+                const data = await res.json();
+                
+                const out = document.getElementById('test-translate-output');
+                if (out) {
+                   out.innerText = JSON.stringify(data.results, null, 2);
+                   out.classList.remove('hidden');
+                }
+              } catch (e) {
+                alert("Errore di connessione");
+              } finally {
+                if (btn) btn.innerText = "Esegui Test Diagnostico";
+              }
+            }}
+            id="btn-test-translate"
+            className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-md"
+          >
+            Esegui Test Diagnostico
+          </button>
+          
+          <pre id="test-translate-output" className="hidden mt-4 p-4 bg-slate-900 text-emerald-400 text-[10px] rounded-2xl overflow-x-auto border border-slate-800 leading-relaxed" />
+        </div>
+      </div>
     </div>
   );
 }

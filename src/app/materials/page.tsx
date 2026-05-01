@@ -262,6 +262,31 @@ export default function MaterialsPage() {
                       {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                       {isExpanded ? 'Chiudi' : 'Dettagli'}
                     </button>
+                    
+                    <button 
+                      onClick={async () => {
+                        const confirm = window.confirm("Vuoi ritradurre questo materiale?");
+                        if (!confirm) return;
+                        
+                        try {
+                          const res = await fetch(`/api/materials/${m.id}/translate`, { method: 'POST' });
+                          const data = await res.json();
+                          if (data.success) {
+                            alert("Materiale tradotto con successo!");
+                            window.location.reload();
+                          } else {
+                            alert("Errore: " + (data.error || "Servizi non disponibili"));
+                          }
+                        } catch (e) {
+                          alert("Errore di connessione");
+                        }
+                      }}
+                      className="p-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-100 transition-all border border-emerald-100"
+                      title="Ritraduci Materiale (IT)"
+                    >
+                      <Languages className="w-4 h-4" />
+                    </button>
+
                     <button 
                       className="p-2 bg-slate-50 text-slate-400 rounded-xl hover:bg-slate-100 transition-all border border-slate-200"
                       title="Sincronizza"
