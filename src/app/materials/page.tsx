@@ -217,8 +217,8 @@ export default function MaterialsPage() {
                     )}
                   </div>
 
-                  {/* Odour Description */}
-                  {(m.odourProfileIt || m.odourProfile) && (
+                  {/* Odour Description - Preview (Solo IT se disponibile) */}
+                  {!isExpanded && (m.odourProfileIt || m.odourProfile) && (
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-1.5 text-slate-400">
                         <Wind className="w-3.5 h-3.5" />
@@ -245,7 +245,7 @@ export default function MaterialsPage() {
                       </a>
                     ))}
                     {!m.documents?.length && (
-                       <span className="text-[9px] font-bold text-slate-300 uppercase italic">Nessun documento caricato</span>
+                       <span className="text-[9px] font-bold text-slate-300 uppercase italic">Documenti assenti</span>
                     )}
                   </div>
                 </div>
@@ -255,14 +255,16 @@ export default function MaterialsPage() {
                   <div className="flex items-center gap-2">
                     <button 
                       onClick={() => setExpandedId(isExpanded ? null : m.id)}
-                      className="px-3 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-slate-800 transition-all shadow-sm"
+                      className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-sm ${
+                        isExpanded ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-white hover:bg-slate-800'
+                      }`}
                     >
                       {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                       {isExpanded ? 'Chiudi' : 'Dettagli'}
                     </button>
                     <button 
                       className="p-2 bg-slate-50 text-slate-400 rounded-xl hover:bg-slate-100 transition-all border border-slate-200"
-                      title="Sincronizzazione Manuale"
+                      title="Sincronizza"
                     >
                       <RefreshCw className="w-4 h-4" />
                     </button>
@@ -280,29 +282,91 @@ export default function MaterialsPage() {
                   )}
                 </div>
 
-                {/* Expanded Details Table */}
-                {isExpanded && m.ifraLimits && m.ifraLimits.length > 0 && (
-                  <div className="mt-6 pt-6 border-t border-slate-100 animate-in slide-in-from-top-2 duration-300">
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Tabella Completa Categorie</h4>
-                    <div className="bg-slate-50 rounded-xl border border-slate-100 overflow-hidden">
-                      <table className="w-full text-left text-xs">
-                        <thead>
-                          <tr className="bg-slate-100/50 text-slate-500 font-bold">
-                            <th className="px-4 py-3 text-[10px]">Categoria</th>
-                            <th className="px-4 py-3 text-[10px] text-right">Limite %</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {m.ifraLimits.map((limit: any, idx: number) => (
-                            <tr key={idx} className="hover:bg-white transition-colors">
-                              <td className="px-4 py-2.5 font-semibold text-slate-600">{formatCategory(limit.category)}</td>
-                              <td className={`px-4 py-2.5 font-bold text-right ${limit.isNoRestriction ? 'text-emerald-600' : 'text-slate-900'}`}>
-                                {limit.isNoRestriction ? 'No Limit' : `${limit.limit}%`}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                {/* Expanded Details - FULL VIEW */}
+                {isExpanded && (
+                  <div className="mt-6 pt-6 border-t border-slate-100 animate-in slide-in-from-top-4 duration-500 space-y-8">
+                    
+                    {/* Sezione Tradotta Completa (Solo se presente) */}
+                    {(m.odourProfileIt || m.appearanceIt || m.usesIt) && (
+                      <div className="space-y-4 bg-emerald-50/30 p-5 rounded-2xl border border-emerald-100">
+                        <div className="flex items-center gap-2 text-emerald-800 mb-2">
+                          <Wind className="w-4 h-4" />
+                          <span className="text-[10px] font-black uppercase tracking-widest">Scheda Tecnica (IT)</span>
+                        </div>
+                        
+                        {m.odourProfileIt && (
+                          <div className="space-y-1">
+                            <span className="text-[9px] font-black text-emerald-600/60 uppercase tracking-widest">Profilo Olfattivo</span>
+                            <p className="text-sm text-slate-800 leading-relaxed font-medium">
+                              {m.odourProfileIt}
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                          {m.appearanceIt && (
+                            <div className="space-y-1">
+                              <span className="text-[9px] font-black text-emerald-600/60 uppercase tracking-widest">Aspetto Fisico</span>
+                              <p className="text-xs text-slate-700 font-bold">{m.appearanceIt}</p>
+                            </div>
+                          )}
+                          {m.usesIt && (
+                            <div className="space-y-1">
+                              <span className="text-[9px] font-black text-emerald-600/60 uppercase tracking-widest">Utilizzo Consigliato</span>
+                              <p className="text-xs text-slate-700 font-bold">{m.usesIt}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tabella IFRA */}
+                    {m.ifraLimits && m.ifraLimits.length > 0 && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                            <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                            Limiti IFRA per Categoria
+                          </h4>
+                          <span className="text-[9px] font-bold text-slate-300 uppercase">Amendment {m.ifraLimits[0]?.amendment || '49'}</span>
+                        </div>
+                        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                          <table className="w-full text-left text-xs">
+                            <thead>
+                              <tr className="bg-slate-50 text-slate-500 font-bold">
+                                <th className="px-4 py-3 text-[10px]">Categoria</th>
+                                <th className="px-4 py-3 text-[10px] text-right">Limite %</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {m.ifraLimits.map((limit: any, idx: number) => (
+                                <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                                  <td className="px-4 py-2.5 font-semibold text-slate-600">{formatCategory(limit.category)}</td>
+                                  <td className={`px-4 py-2.5 font-bold text-right ${limit.isNoRestriction ? 'text-emerald-600' : 'text-slate-900'}`}>
+                                    {limit.isNoRestriction ? 'No Limit' : `${limit.limit}%`}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Technical Info Base (EN) */}
+                    <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-50">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">CAS Number</span>
+                        <span className="text-[10px] font-bold text-slate-700">{m.cas || 'N/A'}</span>
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Longevity</span>
+                        <span className="text-[10px] font-bold text-slate-700">{m.longevity || 'N/A'}</span>
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">UN Number</span>
+                        <span className="text-[10px] font-bold text-slate-700">{m.unNumber || 'N/A'}</span>
+                      </div>
                     </div>
                   </div>
                 )}
