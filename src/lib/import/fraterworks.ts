@@ -124,7 +124,9 @@ export async function parseFraterworksProduct(cleanUrl: string): Promise<Fraterw
         const text = $(el).text().trim();
         if (keywords.some(k => text.toLowerCase().includes(k.toLowerCase()))) {
           // Il valore è solitamente nel nodo di testo successivo o nel genitore
-          let nextText = $(el).get(0).nextSibling ? $(el).get(0).nextSibling.nodeValue?.trim() : '';
+          const element = $(el).get(0);
+          let nextText = (element && element.nextSibling) ? (element.nextSibling as any).nodeValue?.trim() : '';
+          
           if (!nextText || nextText.length < 5) {
             nextText = $(el).parent().text().replace(text, '').trim();
           }
