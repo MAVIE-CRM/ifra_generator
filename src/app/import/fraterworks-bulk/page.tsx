@@ -20,7 +20,8 @@ import {
   Layers,
   Activity,
   ArrowRight,
-  RefreshCw
+  RefreshCw,
+  Languages
 } from 'lucide-react';
 import Link from 'next/link';
 

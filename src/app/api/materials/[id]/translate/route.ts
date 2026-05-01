@@ -4,10 +4,10 @@ import { translateToItalian } from '@/lib/translate';
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const materialId = params.id;
+    const { id: materialId } = await params;
     
     // 1. Recupera il materiale
     const material = await prisma.material.findUnique({

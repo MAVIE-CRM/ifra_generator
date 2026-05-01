@@ -8,6 +8,17 @@ export interface FraterworksIfraLimit {
   context: string | null;
 }
 
+export interface FraterworksVariant {
+  variantId: string;
+  title: string;
+  option1: string | null;
+  option2: string | null;
+  option3: string | null;
+  price: number;
+  currency: string;
+  available: boolean;
+}
+
 export interface FraterworksImportResult {
   name: string;
   cas: string | null;
@@ -28,36 +39,52 @@ export interface FraterworksImportResult {
   ifraLimits: FraterworksIfraLimit[];
   primaryIfraLimit: FraterworksIfraLimit | null;
   documents: Array<{ type: string; url: string; name: string }>;
+  variants: FraterworksVariant[];
 }
 
 /**
  * Reusable Fraterworks product parser.
- * Used by both initial import and real-time synchronization.
+ * Now extracts variants, prices, and ALL technical documents.
  */
 export async function parseFraterworksProduct(cleanUrl: string): Promise<FraterworksImportResult> {
   try {
+    // 1. FETCH HTML PER DATI TECNICI E IFRA
     const response = await fetch(cleanUrl, {
-      headers: {
-        'User-Agent': 'IFRA_GENERATOR/1.0',
-      },
+      headers: { 'User-Agent': 'IFRA_GENERATOR/1.0' },
     });
 
-    if (!response.ok) {
-      throw new Error(`Fetch fallita: ${response.status} ${response.statusText}`);
-    }
+    if (!response.ok) throw new Error(`Fetch fallita: ${response.status}`);
 
     const html = await response.text();
     const cleanText = html.replace(/<[^>]*>?/gm, ' ').replace(/\s\s+/g, ' '); 
     
+    // 2. FETCH JSON SHOPIFY PER PREZZI E VARIANTI
+    let variants: FraterworksVariant[] = [];
+    try {
+      const jsonUrl = cleanUrl.split('?')[0] + '.js';
+      const jsonRes = await fetch(jsonUrl);
+      if (jsonRes.ok) {
+        const productData = await jsonRes.json();
+        variants = productData.variants.map((v: any) => ({
+          variantId: String(v.id),
+          title: v.title,
+          option1: v.option1,
+          option2: v.option2,
+          option3: v.option3,
+          price: v.price / 100, // Shopify è in centesimi
+          currency: "EUR", // Fraterworks è solitamente EUR o USD, ma forziamo o rileviamo se possibile
+          available: v.available
+        }));
+      }
+    } catch (e) {
+      console.error("SHOPIFY JSON PARSE ERROR:", e);
+    }
+
     const getFallbackName = (url: string) => {
       try {
         const u = new URL(url);
-        const parts = u.pathname.split('/').filter(Boolean);
-        const lastPart = parts[parts.length - 1] || 'Materiale';
-        return lastPart.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-      } catch {
-        return 'Materiale Fraterworks';
-      }
+        return u.pathname.split('/').pop()?.replace(/-/g, ' ').toUpperCase() || 'Materiale';
+      } catch { return 'Materiale Fraterworks'; }
     };
 
     const nameMatch = html.match(/<h1[^>]*>([^<]+)<\/h1>/);
@@ -77,22 +104,19 @@ export async function parseFraterworksProduct(cleanUrl: string): Promise<Fraterw
     const longevity = extractSection('Longevity');
     const collectionMatch = html.match(/([A-Za-z\s]+Collection)/i);
 
-    // --- TRADUZIONE AUTOMATICA GRATUITA ---
-    console.log(`TRANSLATING FIELDS FOR: ${cleanUrl}`);
+    // TRADUZIONE
     const [odourProfileIt, usesIt, appearanceIt] = await Promise.all([
       translateToItalian(odourProfile),
       translateToItalian(uses),
       translateToItalian(appearance)
     ]);
 
-    // --- MOTORE PARSING IFRA AVANZATO ---
+    // PARSING IFRA
     const rawIfraLimits: FraterworksIfraLimit[] = [];
     const patterns = [
       /IFRA\s+(\d+)[:\s-]+([\d.]+)%\s*(?:in\s+finished\s+product)?\s*(?:\(Cat\.\s*([^)]+)\))?/gi,
       /IFRA\s+(?:Cat\.\s*([^:\s]+))?[:\s-]+([\d.]+)%/gi,
       /(?:Cat\.|Category)\s*([^:\s]+)[:\s-]+([\d.]+)%/gi,
-      /Restricted\s+to\s+([\d.]+)%\s+in\s+(?:Cat\.|Category)\s*([^:\s]+)/gi,
-      /Maximum\s+use\s+level[:\s-]+([\d.]+)%/gi
     ];
 
     patterns.forEach((regex, index) => {
@@ -101,26 +125,15 @@ export async function parseFraterworksProduct(cleanUrl: string): Promise<Fraterw
         let amendment = "unknown";
         let limitPercent = 0;
         let category = "4"; 
-        let context = match[0];
-
         if (index === 0) {
           amendment = match[1];
           limitPercent = parseFloat(match[2]);
           category = (match[3] || "4").trim();
-        } else if (index === 1) {
+        } else {
           limitPercent = parseFloat(match[2]);
           category = (match[1] || "4").trim();
-        } else if (index === 2) {
-          limitPercent = parseFloat(match[2]);
-          category = match[1].trim();
-        } else if (index === 3) {
-          limitPercent = parseFloat(match[1]);
-          category = match[2].trim();
-        } else if (index === 4) {
-          limitPercent = parseFloat(match[1]);
-          category = "4";
         }
-
+        
         if (amendment === "unknown") {
           const amMatch = cleanText.match(/IFRA\s+(\d+)/i);
           if (amMatch) amendment = amMatch[1];
@@ -130,7 +143,7 @@ export async function parseFraterworksProduct(cleanUrl: string): Promise<Fraterw
           amendment,
           limitPercent,
           category: category.replace(/^Cat\./i, '').trim(),
-          context: context.substring(0, 100).trim()
+          context: match[0].substring(0, 50)
         });
       }
     });
@@ -144,30 +157,47 @@ export async function parseFraterworksProduct(cleanUrl: string): Promise<Fraterw
     });
 
     const ifraLimits = Array.from(uniqueLimitsMap.values());
-    ifraLimits.sort((a, b) => {
-      const amA = a.amendment === 'unknown' ? 0 : parseInt(a.amendment);
-      const amB = b.amendment === 'unknown' ? 0 : parseInt(b.amendment);
-      return amB - amA;
-    });
     const primaryIfra = ifraLimits.length > 0 ? ifraLimits[0] : null;
 
-    const name = nameMatch ? nameMatch[1].trim() : getFallbackName(cleanUrl);
-
+    // --- ESTRAZIONE DOCUMENTI POTENZIATA ---
     const docLinks: Array<{ type: string; url: string; name: string }> = [];
-    const sdsMatch = html.match(/href="([^"]+sds[^"]+)"/i);
-    if (sdsMatch) {
-      const sdsUrl = normalizeOptionalUrl(sdsMatch[1]);
-      if (sdsUrl) docLinks.push({ type: 'SDS', url: sdsUrl, name: 'Safety Data Sheet' });
-    }
+    const docRegex = /href="([^"]+\.pdf[^"]*)"/gi;
+    let docMatch;
+    
+    while ((docMatch = docRegex.exec(html)) !== null) {
+      const originalUrl = docMatch[1];
+      const url = normalizeOptionalUrl(originalUrl);
+      if (!url) continue;
 
-    const ifraMatch = html.match(/href="([^"]+ifra[^"]+)"/i);
-    if (ifraMatch) {
-      const ifraUrl = normalizeOptionalUrl(ifraMatch[1]);
-      if (ifraUrl) docLinks.push({ type: 'IFRA_CERT', url: ifraUrl, name: 'IFRA Certificate' });
+      let type = "OTHER";
+      let name = "Document";
+      const lowerUrl = url.toLowerCase();
+
+      if (lowerUrl.includes('sds') || lowerUrl.includes('safety')) {
+        type = "SDS";
+        name = "Safety Data Sheet";
+      } else if (lowerUrl.includes('ifra') || lowerUrl.includes('cert')) {
+        type = "IFRA_CERT";
+        name = "IFRA Certificate";
+      } else if (lowerUrl.includes('coa')) {
+        type = "COA";
+        name = "Certificate of Analysis";
+      } else if (lowerUrl.includes('tds') || lowerUrl.includes('technical')) {
+        type = "TDS";
+        name = "Technical Data Sheet";
+      } else if (lowerUrl.includes('allergen')) {
+        type = "ALLERGEN";
+        name = "Allergens Statement";
+      }
+
+      // Evita duplicati URL
+      if (!docLinks.some(d => d.url === url)) {
+        docLinks.push({ type, url, name });
+      }
     }
 
     return {
-      name: name,
+      name: nameMatch ? nameMatch[1].trim() : getFallbackName(cleanUrl),
       cas: casMatch ? casMatch[1].trim() : null,
       description: 'Imported from Fraterworks',
       descriptionIt: 'Importato da Fraterworks',
@@ -175,34 +205,26 @@ export async function parseFraterworksProduct(cleanUrl: string): Promise<Fraterw
       supplier: 'Fraterworks',
       referenceCode: refMatch ? refMatch[1].trim() : null,
       collection: collectionMatch ? collectionMatch[1].trim() : null,
-      appearance: appearance,
-      appearanceIt: appearanceIt,
-      odourProfile: odourProfile,
-      odourProfileIt: odourProfileIt,
-      longevity: longevity,
-      uses: uses,
-      usesIt: usesIt,
+      appearance,
+      appearanceIt,
+      odourProfile,
+      odourProfileIt,
+      longevity,
+      uses,
+      usesIt,
       unNumber: unMatch ? unMatch[1].trim() : null,
-      ifraLimits: ifraLimits,
+      ifraLimits,
       primaryIfraLimit: primaryIfra,
       documents: docLinks,
+      variants
     };
-  } catch (error: any) {
-    console.error('FETCH/PARSER ERROR:', error);
-    
-    const fallbackName = (function() {
-       try {
-         const u = new URL(cleanUrl);
-         const p = u.pathname.split('/').filter(Boolean);
-         return p[p.length-1].replace(/-/g, ' ').toUpperCase();
-       } catch { return "MATERIALE FRATERWORKS"; }
-    })();
-
+  } catch (error) {
+    console.error('PARSE ERROR:', error);
     return {
-      name: fallbackName,
+      name: "ERRORE IMPORT",
       cas: null,
-      description: 'Importazione parziale (fetch fallita)',
-      descriptionIt: 'Importazione parziale (errore)',
+      description: null,
+      descriptionIt: null,
       sourceUrl: cleanUrl,
       supplier: 'Fraterworks',
       referenceCode: null,
@@ -218,9 +240,9 @@ export async function parseFraterworksProduct(cleanUrl: string): Promise<Fraterw
       ifraLimits: [],
       primaryIfraLimit: null,
       documents: [],
+      variants: []
     };
   }
 }
 
-// Mantieni retrocompatibilità per ora
 export const importFromFraterworks = parseFraterworksProduct;

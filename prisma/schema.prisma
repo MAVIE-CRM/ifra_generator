@@ -47,7 +47,33 @@ model Material {
 
   documents     Document[]
   ifraLimits    IfraLimit[]
+  variants      MaterialVariant[]
   fragranceItems FragranceItem[]
+}
+
+model MaterialVariant {
+  id            String   @id @default(cuid())
+  materialId    String
+  material      Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  
+  variantId     String?  // ID originale Shopify
+  title         String?  // Titolo variante (es. "5g / 100%")
+  weight        String?  // Estratto da opzioni
+  concentration String?  // Estratto da opzioni
+  
+  option1       String?
+  option2       String?
+  option3       String?
+  
+  price         Float?
+  currency      String   @default("EUR")
+  available     Boolean  @default(true)
+  source        String   @default("Fraterworks")
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([materialId])
 }
 
 model IfraLimit {
