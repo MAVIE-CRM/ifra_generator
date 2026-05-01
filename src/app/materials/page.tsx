@@ -20,13 +20,15 @@ import {
   ChevronDown,
   ChevronUp,
   X,
-  Trash
+  Trash,
+  FileText
 } from 'lucide-react';
 
 export default function MaterialsPage() {
   const [materials, setMaterials] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [actionId, setActionId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
@@ -82,6 +84,10 @@ export default function MaterialsPage() {
     }
   };
 
+  const formatCategory = (cat: string) => {
+    return cat.replace('cat', 'Categoria ');
+  };
+
   const filteredMaterials = materials.filter(m => 
     m.name.toLowerCase().includes(search.toLowerCase()) || 
     (m.cas && m.cas.includes(search)) ||
@@ -94,7 +100,7 @@ export default function MaterialsPage() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
         <div className="space-y-4">
           <div className="flex items-center gap-3">
-             <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-900 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
+             <div className="w-12 h-12 bg-gradient-to-br from-[#1b4332] to-[#081c15] rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-900/20">
                 <Database className="w-6 h-6 text-white" />
              </div>
              <h2 className="text-2xl font-black tracking-tighter text-[#1b4332]">IFRA_GENERATOR</h2>
@@ -165,62 +171,125 @@ export default function MaterialsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-          {filteredMaterials.map((m) => (
-            <div key={m.id} className="bg-white rounded-[3rem] p-10 flex flex-col hover:shadow-2xl transition-all duration-700 group relative border border-gray-50 shadow-sm">
-              <div className="space-y-8">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-3">
-                    <h3 className="text-3xl font-black tracking-tight text-[#1b4332] leading-tight">{m.name}</h3>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-bold text-gray-400">{m.cas || '3142-72-1'}</span>
-                      <span className="w-1.5 h-1.5 rounded-full bg-gray-100" />
-                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600/70">{m.supplier || 'FRATERWORKS'}</span>
+          {filteredMaterials.map((m) => {
+            const isExpanded = expandedId === m.id;
+            return (
+              <div key={m.id} className={`bg-white rounded-[3rem] p-10 flex flex-col transition-all duration-700 group relative border border-gray-50 shadow-sm ${isExpanded ? 'lg:col-span-2' : ''}`}>
+                <div className="space-y-8 flex-1">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-3">
+                      <h3 className="text-3xl font-black tracking-tight text-[#1b4332] leading-tight">{m.name}</h3>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-bold text-gray-400">{m.cas || '3142-72-1'}</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-gray-100" />
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600/70">{m.supplier || 'FRATERWORKS'}</span>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => handleDelete(m.id)}
+                      className="p-2 text-gray-100 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all"
+                    >
+                      <Trash2 className="w-6 h-6" />
+                    </button>
+                  </div>
+
+                  {/* IFRA Compliance Box */}
+                  <div className="p-6 bg-gray-50/50 rounded-[2rem] border border-gray-100 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <ShieldCheck className={`w-5 h-5 ${m.ifraStatus === 'found' ? 'text-emerald-500' : 'text-gray-300'}`} />
+                      <span className="text-[12px] font-black uppercase tracking-widest text-gray-500">IFRA Compliance</span>
+                    </div>
+                    <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${
+                      m.ifraStatus === 'found' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-gray-200/60 text-gray-400'
+                    }`}>
+                      {m.ifraStatus === 'found' ? 'Conforme' : 'Da Verificare'}
                     </div>
                   </div>
-                  <button 
-                    onClick={() => handleDelete(m.id)}
-                    className="p-2 text-gray-100 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all"
-                  >
-                    <Trash2 className="w-6 h-6" />
-                  </button>
-                </div>
 
-                {/* IFRA Compliance Box */}
-                <div className="p-6 bg-gray-50/50 rounded-[2rem] border border-gray-100 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <Zap className={`w-5 h-5 ${m.ifraStatus === 'found' ? 'text-emerald-500' : 'text-gray-300'}`} />
-                    <span className="text-[12px] font-black uppercase tracking-widest text-gray-500">IFRA Compliance</span>
+                  {/* Odour Profile */}
+                  {(m.odourProfileIt || m.odourProfile) && (
+                    <div className="flex items-start gap-4">
+                      <Wind className="w-5 h-5 text-gray-300 mt-1" />
+                      <div className="text-sm leading-relaxed">
+                         <span className="font-black text-gray-300 uppercase text-[9px] tracking-widest block mb-1">Profilo Olfattivo</span>
+                         <p className="font-bold text-gray-600 line-clamp-2">{m.odourProfileIt || m.odourProfile}</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Action Buttons */}
+                  <div className="flex flex-wrap gap-4 pt-4 border-t border-gray-50">
+                    <button 
+                      onClick={() => setExpandedId(isExpanded ? null : m.id)}
+                      className="text-[10px] font-black uppercase tracking-[0.2em] bg-emerald-50 text-emerald-700 px-5 py-2.5 rounded-2xl flex items-center gap-2 hover:bg-emerald-100 transition-all"
+                    >
+                      {isExpanded ? 'Chiudi Dettagli' : 'Mostra Dettagli'}
+                      {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                    </button>
+                    {m.sourceUrl && (
+                      <a 
+                        href={m.sourceUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="text-[10px] font-black uppercase tracking-[0.2em] bg-gray-50 text-gray-400 px-5 py-2.5 rounded-2xl flex items-center gap-2 hover:bg-gray-100 transition-all border border-gray-100"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        Sorgente
+                      </a>
+                    )}
                   </div>
-                  <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${
-                    m.ifraStatus === 'found' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-gray-200/60 text-gray-400'
-                  }`}>
-                    {m.ifraStatus === 'found' ? 'Conforme' : 'Da Verificare'}
-                  </div>
-                </div>
 
-                {/* Info Pills */}
-                <div className="flex flex-wrap gap-4">
-                   {m.odourProfile && (
-                     <div className="flex items-center gap-3 px-5 py-3 bg-gray-50/50 rounded-2xl border border-gray-100">
-                        <Wind className="w-4 h-4 text-gray-300" />
-                        <span className="text-xs font-bold text-gray-600 truncate max-w-[180px]">{m.odourProfile}</span>
-                     </div>
-                   )}
-                   {m.sourceUrl && (
-                     <a 
-                       href={m.sourceUrl} 
-                       target="_blank" 
-                       rel="noopener noreferrer" 
-                       className="flex items-center gap-3 px-5 py-3 bg-gray-50/50 rounded-2xl border border-gray-100 hover:bg-gray-100 transition-colors"
-                     >
-                        <ExternalLink className="w-4 h-4 text-gray-300" />
-                        <span className="text-xs font-black text-gray-400 uppercase tracking-[0.1em]">Sorgente</span>
-                     </a>
-                   )}
+                  {/* Expanded Content */}
+                  {isExpanded && (
+                    <div className="mt-8 space-y-8 animate-in zoom-in-95 duration-500">
+                      <div className="grid grid-cols-1 gap-6">
+                        {(m.odourProfileIt || m.odourProfile) && (
+                          <div className="p-8 bg-gray-50/50 rounded-[2.5rem] border border-gray-100">
+                            <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-emerald-700 mb-4">Profilo Olfattivo Dettagliato</h4>
+                            <p className="text-base leading-relaxed font-bold text-gray-700">{m.odourProfileIt || m.odourProfile}</p>
+                          </div>
+                        )}
+                        {(m.usesIt || m.uses) && (
+                          <div className="p-8 bg-gray-50/50 rounded-[2.5rem] border border-gray-100">
+                            <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-[#1b4332] mb-4">Usi e Applicazioni</h4>
+                            <p className="text-base leading-relaxed font-bold text-gray-700">{m.usesIt || m.uses}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {m.ifraLimits && m.ifraLimits.length > 0 && (
+                        <div className="p-8 bg-white rounded-[2.5rem] border border-gray-100 shadow-inner">
+                          <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-gray-400 mb-6">LIMITI IFRA PER CATEGORIA</h4>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs">
+                              <thead>
+                                <tr className="border-b border-gray-50 text-gray-300 uppercase tracking-widest text-[9px] font-black">
+                                  <th className="py-4 font-black">Emendamento</th>
+                                  <th className="py-4 font-black">Categoria</th>
+                                  <th className="py-4 font-black text-right">Limite Max %</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-50">
+                                {m.ifraLimits.map((limit: any, idx: number) => (
+                                  <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
+                                    <td className="py-4 font-bold text-gray-400">IFRA {limit.amendment || '51'}</td>
+                                    <td className="py-4 font-bold text-gray-600">{formatCategory(limit.category)}</td>
+                                    <td className={`py-4 font-black text-right ${limit.isNoRestriction ? 'text-emerald-500 italic' : 'text-[#1b4332]'}`}>
+                                      {limit.limitText || `${limit.limit}%`}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           
           {/* Empty State */}
           {filteredMaterials.length === 0 && !loading && (
