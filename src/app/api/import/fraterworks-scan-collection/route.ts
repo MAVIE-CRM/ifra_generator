@@ -14,8 +14,11 @@ export async function POST(request: Request) {
   try {
     const { collectionUrl, pageFrom = 1, pageTo = 1, maxProducts } = await request.json();
 
-    console.log("PAGE FROM:", pageFrom);
-    console.log("PAGE TO:", pageTo);
+    // LOG DI AVVIO RIGOROSO
+    console.log("-----------------------------------------");
+    console.log("PAGE RANGE START:", pageFrom);
+    console.log("PAGE RANGE END:", pageTo);
+    console.log("-----------------------------------------");
 
     if (!collectionUrl || !collectionUrl.includes('fraterworks.com/collections/')) {
       return NextResponse.json({ success: false, error: "URL non valido. Inserire una collection Fraterworks." }, { status: 400 });
@@ -40,6 +43,7 @@ export async function POST(request: Request) {
       newProducts: 0
     };
 
+    // CICLO RIGIDO: NON ESCIRA' MAI DAL RANGE [pageFrom -> pageTo]
     for (let page = pageFrom; page <= pageTo; page++) {
       const pageUrl = buildCollectionPageUrl(collectionUrl, page);
       console.log("SCANNING PAGE:", pageUrl);
@@ -49,14 +53,17 @@ export async function POST(request: Request) {
         cache: 'no-store'
       });
 
-      if (!response.ok) break;
+      if (!response.ok) {
+        console.warn(`STOP: Page ${page} returned status ${response.status}`);
+        break; 
+      }
 
       const html = await response.text();
       const $ = cheerio.load(html);
       summary.pagesScanned++;
 
       const links = $('a[href*="/products/"]');
-      const pageProductsCountBefore = allProducts.length;
+      const foundOnThisPage = [];
       
       for (const el of links.toArray()) {
         const href = $(el).attr('href');
@@ -95,25 +102,33 @@ export async function POST(request: Request) {
             summary.newProducts++;
           }
 
-          allProducts.push({
+          const product = {
             title,
             url: cleanUrl,
             slug,
             existsInDatabase: !!existingInDb,
             existingMaterialId: existingInDb?.id || null
-          });
+          };
 
-          if (maxProducts && allProducts.length >= maxProducts) break;
+          allProducts.push(product);
+          foundOnThisPage.push(product);
+
+          if (maxProducts && allProducts.length >= maxProducts) {
+            console.log("MAX PRODUCTS REACHED. STOPPING SCAN.");
+            break;
+          }
         }
       }
 
-      console.log("PRODUCTS FOUND ON PAGE:", allProducts.length - pageProductsCountBefore);
+      console.log(`PAGE ${page} COMPLETED. PRODUCTS FOUND:`, foundOnThisPage.length);
 
       if (maxProducts && allProducts.length >= maxProducts) break;
     }
 
-    console.log("TOTAL PRODUCTS FOUND:", allProducts.length);
-    console.log("FINAL SCAN SUMMARY:", summary);
+    console.log("-----------------------------------------");
+    console.log("TOTAL UNIQUE PRODUCTS ACROSS RANGE:", allProducts.length);
+    console.log("SCAN SUMMARY:", summary);
+    console.log("-----------------------------------------");
 
     return NextResponse.json({ 
       success: true, 
@@ -122,7 +137,7 @@ export async function POST(request: Request) {
     });
 
   } catch (error: any) {
-    console.error("FRATERWORKS SCAN ERROR:", error);
+    console.error("FRATERWORKS SCAN SYSTEM ERROR:", error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
