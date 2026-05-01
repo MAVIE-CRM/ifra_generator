@@ -282,90 +282,135 @@ export default function MaterialsPage() {
                   )}
                 </div>
 
-                {/* Expanded Details - FULL VIEW */}
+                {/* Expanded Details - FULL VIEW (Professional Technical Sheet) */}
                 {isExpanded && (
-                  <div className="mt-6 pt-6 border-t border-slate-100 animate-in slide-in-from-top-4 duration-500 space-y-8">
+                  <div className="mt-8 pt-8 border-t border-slate-100 animate-in fade-in slide-in-from-top-4 duration-500 max-w-4xl mx-auto w-full">
                     
-                    {/* Sezione Tradotta Completa (Solo se presente) */}
-                    {(m.odourProfileIt || m.appearanceIt || m.usesIt) && (
-                      <div className="space-y-4 bg-emerald-50/30 p-5 rounded-2xl border border-emerald-100">
-                        <div className="flex items-center gap-2 text-emerald-800 mb-2">
-                          <Wind className="w-4 h-4" />
-                          <span className="text-[10px] font-black uppercase tracking-widest">Scheda Tecnica (IT)</span>
+                    <div className="space-y-6">
+                      <h3 className="text-sm font-black text-slate-900 uppercase tracking-[0.2em] mb-8 border-b border-slate-900 pb-2 inline-block">
+                        Scheda Tecnica del Materiale
+                      </h3>
+
+                      {/* 1. PROFILO OLFATTIVO */}
+                      <div className="rounded-2xl border border-emerald-100 bg-white p-6 shadow-sm">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Wind className="w-4 h-4 text-emerald-600" />
+                          <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">1. Profilo Olfattivo (IT)</span>
                         </div>
-                        
-                        {m.odourProfileIt && (
-                          <div className="space-y-1">
-                            <span className="text-[9px] font-black text-emerald-600/60 uppercase tracking-widest">Profilo Olfattivo</span>
-                            <p className="text-sm text-slate-800 leading-relaxed font-medium">
-                              {m.odourProfileIt}
-                            </p>
-                          </div>
+                        <p className="text-sm leading-7 text-slate-700 whitespace-pre-wrap break-words font-medium">
+                          {m.odourProfileIt && m.odourProfileIt !== m.odourProfile 
+                            ? m.odourProfileIt 
+                            : <span className="text-slate-400 italic font-normal">Traduzione non disponibile</span>
+                          }
+                        </p>
+                        {m.odourProfile && (
+                          <details className="mt-4 pt-4 border-t border-slate-50">
+                            <summary className="text-[10px] font-bold text-slate-400 cursor-pointer hover:text-slate-600 uppercase tracking-widest">Testo originale (EN)</summary>
+                            <p className="mt-2 text-xs text-slate-500 leading-6 italic">{m.odourProfile}</p>
+                          </details>
                         )}
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                          {m.appearanceIt && (
-                            <div className="space-y-1">
-                              <span className="text-[9px] font-black text-emerald-600/60 uppercase tracking-widest">Aspetto Fisico</span>
-                              <p className="text-xs text-slate-700 font-bold">{m.appearanceIt}</p>
-                            </div>
-                          )}
-                          {m.usesIt && (
-                            <div className="space-y-1">
-                              <span className="text-[9px] font-black text-emerald-600/60 uppercase tracking-widest">Utilizzo Consigliato</span>
-                              <p className="text-xs text-slate-700 font-bold">{m.usesIt}</p>
-                            </div>
-                          )}
-                        </div>
                       </div>
-                    )}
 
-                    {/* Tabella IFRA */}
-                    {m.ifraLimits && m.ifraLimits.length > 0 && (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                            <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                            Limiti IFRA per Categoria
-                          </h4>
-                          <span className="text-[9px] font-bold text-slate-300 uppercase">Amendment {m.ifraLimits[0]?.amendment || '49'}</span>
+                      {/* 2. ASPETTO FISICO */}
+                      <div className="rounded-2xl border border-emerald-100 bg-white p-6 shadow-sm">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Info className="w-4 h-4 text-emerald-600" />
+                          <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">2. Aspetto Fisico</span>
                         </div>
-                        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                          <table className="w-full text-left text-xs">
-                            <thead>
-                              <tr className="bg-slate-50 text-slate-500 font-bold">
-                                <th className="px-4 py-3 text-[10px]">Categoria</th>
-                                <th className="px-4 py-3 text-[10px] text-right">Limite %</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                              {m.ifraLimits.map((limit: any, idx: number) => (
-                                <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                                  <td className="px-4 py-2.5 font-semibold text-slate-600">{formatCategory(limit.category)}</td>
-                                  <td className={`px-4 py-2.5 font-bold text-right ${limit.isNoRestriction ? 'text-emerald-600' : 'text-slate-900'}`}>
-                                    {limit.isNoRestriction ? 'No Limit' : `${limit.limit}%`}
-                                  </td>
+                        <p className="text-sm leading-7 text-slate-700 whitespace-pre-wrap break-words font-medium">
+                          {m.appearanceIt && m.appearanceIt !== m.appearance
+                            ? m.appearanceIt 
+                            : <span className="text-slate-400 italic font-normal">Traduzione non disponibile</span>
+                          }
+                        </p>
+                      </div>
+
+                      {/* 3. UTILIZZO CONSIGLIATO */}
+                      <div className="rounded-2xl border border-emerald-100 bg-white p-6 shadow-sm">
+                        <div className="flex items-center gap-2 mb-4">
+                          <RefreshCw className="w-4 h-4 text-emerald-600" />
+                          <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">3. Utilizzo Consigliato</span>
+                        </div>
+                        <p className="text-sm leading-7 text-slate-700 whitespace-pre-wrap break-words font-medium">
+                          {m.usesIt && m.usesIt !== m.uses
+                            ? m.usesIt 
+                            : <span className="text-slate-400 italic font-normal">Traduzione non disponibile</span>
+                          }
+                        </p>
+                        {m.uses && (
+                          <details className="mt-4 pt-4 border-t border-slate-50">
+                            <summary className="text-[10px] font-bold text-slate-400 cursor-pointer hover:text-slate-600 uppercase tracking-widest">Original suggestions (EN)</summary>
+                            <p className="mt-2 text-xs text-slate-500 leading-6 italic">{m.uses}</p>
+                          </details>
+                        )}
+                      </div>
+
+                      {/* 4. DESCRIZIONE / NOTE */}
+                      <div className="rounded-2xl border border-emerald-100 bg-white p-6 shadow-sm">
+                        <div className="flex items-center gap-2 mb-4">
+                          <FileText className="w-4 h-4 text-emerald-600" />
+                          <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">4. Descrizione & Note</span>
+                        </div>
+                        <p className="text-sm leading-7 text-slate-700 whitespace-pre-wrap break-words font-medium">
+                          {m.descriptionIt && m.descriptionIt !== m.description
+                            ? m.descriptionIt 
+                            : m.description || <span className="text-slate-400 italic font-normal">Nessuna descrizione disponibile</span>
+                          }
+                        </p>
+                      </div>
+
+                      {/* Tabella IFRA DEDUPLICATA */}
+                      {m.ifraLimits && m.ifraLimits.length > 0 && (
+                        <div className="space-y-4 mt-12">
+                          <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                            <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                              Limiti di Utilizzo IFRA (Deduplicati)
+                            </h4>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">Standard {m.ifraLimits[0]?.amendment || 'Vigente'}</span>
+                          </div>
+                          
+                          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                            <table className="w-full text-left text-sm">
+                              <thead>
+                                <tr className="bg-slate-50 text-slate-500 font-bold">
+                                  <th className="px-6 py-4 text-[10px] uppercase tracking-wider">Categoria</th>
+                                  <th className="px-6 py-4 text-[10px] uppercase tracking-wider text-right">Limite %</th>
                                 </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {Array.from(new Map(m.ifraLimits.map((l: any) => [`${l.category}-${l.amendment}`, l])).values()).map((limit: any, idx: number) => (
+                                  <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                                    <td className="px-6 py-4 font-semibold text-slate-700">{formatCategory(limit.category)}</td>
+                                    <td className={`px-6 py-4 font-bold text-right ${limit.isNoRestriction ? 'text-emerald-600' : 'text-slate-900'}`}>
+                                      {limit.isNoRestriction ? 'NESSUNA RESTRIZIONE' : `${limit.limit}%`}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    {/* Technical Info Base (EN) */}
-                    <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-50">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">CAS Number</span>
-                        <span className="text-[10px] font-bold text-slate-700">{m.cas || 'N/A'}</span>
-                      </div>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Longevity</span>
-                        <span className="text-[10px] font-bold text-slate-700">{m.longevity || 'N/A'}</span>
-                      </div>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">UN Number</span>
-                        <span className="text-[10px] font-bold text-slate-700">{m.unNumber || 'N/A'}</span>
+                      {/* Technical Info Grid (Small data) */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-8 border-t border-slate-100">
+                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter block mb-1">CAS Number</span>
+                          <span className="text-xs font-bold text-slate-900">{m.cas || 'N/A'}</span>
+                        </div>
+                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter block mb-1">Longevity</span>
+                          <span className="text-xs font-bold text-slate-900">{m.longevity || 'N/A'}</span>
+                        </div>
+                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter block mb-1">UN Number</span>
+                          <span className="text-xs font-bold text-slate-900">{m.unNumber || 'N/A'}</span>
+                        </div>
+                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter block mb-1">Ref Code</span>
+                          <span className="text-xs font-bold text-slate-900">{m.referenceCode || 'N/A'}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
