@@ -2,11 +2,20 @@ import { NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
 import { prisma } from '@/lib/prisma';
 
+// Funzione utility per costruire l'URL corretto della pagina senza conflitti di query string
+function buildCollectionPageUrl(collectionUrl: string, page: number) {
+  const url = new URL(collectionUrl);
+  url.search = ""; 
+  url.searchParams.set("page", String(page));
+  return url.toString();
+}
+
 export async function POST(request: Request) {
   try {
     const { collectionUrl, pageFrom = 1, pageTo = 1, maxProducts } = await request.json();
 
-    console.log("PAGE RANGE:", pageFrom, pageTo);
+    console.log("PAGE FROM:", pageFrom);
+    console.log("PAGE TO:", pageTo);
 
     if (!collectionUrl || !collectionUrl.includes('fraterworks.com/collections/')) {
       return NextResponse.json({ success: false, error: "URL non valido. Inserire una collection Fraterworks." }, { status: 400 });
@@ -21,6 +30,8 @@ export async function POST(request: Request) {
     const seenSlugs = new Set<string>();
 
     const summary = {
+      pageFrom,
+      pageTo,
       pagesScanned: 0,
       totalFound: 0,
       uniqueFound: 0,
@@ -30,11 +41,12 @@ export async function POST(request: Request) {
     };
 
     for (let page = pageFrom; page <= pageTo; page++) {
-      const pageUrl = `${collectionUrl.split('?')[0]}?page=${page}`;
+      const pageUrl = buildCollectionPageUrl(collectionUrl, page);
       console.log("SCANNING PAGE:", pageUrl);
 
       const response = await fetch(pageUrl, {
-        headers: { 'User-Agent': 'IFRA_GENERATOR/1.0' }
+        headers: { 'User-Agent': 'IFRA_GENERATOR/1.0' },
+        cache: 'no-store'
       });
 
       if (!response.ok) break;
@@ -44,13 +56,13 @@ export async function POST(request: Request) {
       summary.pagesScanned++;
 
       const links = $('a[href*="/products/"]');
+      const pageProductsCountBefore = allProducts.length;
       
       for (const el of links.toArray()) {
         const href = $(el).attr('href');
         const title = $(el).text().trim() || $(el).find('img').attr('alt')?.trim() || "Prodotto senza titolo";
         
         if (href) {
-          // Normalizzazione URL: rimuovi parametri query
           const absoluteUrl = href.startsWith('http') ? href : `${baseUrl}${href.split('?')[0]}`;
           const cleanUrl = absoluteUrl.split('?')[0].split('#')[0];
           const slug = cleanUrl.split('/').pop() || '';
@@ -67,7 +79,6 @@ export async function POST(request: Request) {
           seenSlugs.add(slug);
           summary.uniqueFound++;
 
-          // Controllo duplicati nel Database
           const existingInDb = await prisma.material.findFirst({
             where: {
               OR: [
@@ -92,16 +103,17 @@ export async function POST(request: Request) {
             existingMaterialId: existingInDb?.id || null
           });
 
-          console.log("PRODUCT FOUND:", cleanUrl, existingInDb ? "(IN DB)" : "(NEW)");
-          
           if (maxProducts && allProducts.length >= maxProducts) break;
         }
       }
 
+      console.log("PRODUCTS FOUND ON PAGE:", allProducts.length - pageProductsCountBefore);
+
       if (maxProducts && allProducts.length >= maxProducts) break;
     }
 
-    console.log("IMPORT SUMMARY:", summary);
+    console.log("TOTAL PRODUCTS FOUND:", allProducts.length);
+    console.log("FINAL SCAN SUMMARY:", summary);
 
     return NextResponse.json({ 
       success: true, 

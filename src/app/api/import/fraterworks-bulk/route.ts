@@ -20,12 +20,17 @@ export async function POST(request: Request) {
       logs: [] as string[]
     };
 
+    console.log(`STARTING BULK IMPORT: ${productUrls.length} items`);
+
     for (const url of productUrls) {
       try {
+        // Normalizzazione rigorosa
         const cleanUrl = url.split('?')[0].split('#')[0];
         const slug = cleanUrl.split('/').pop() || '';
 
-        // 1. Controllo se esiste già nel DB
+        if (!slug) throw new Error("Slug non valido");
+
+        // 1. Controllo duplicati (Slug o URL)
         const existingMaterial = await prisma.material.findFirst({
           where: {
             OR: [
@@ -39,18 +44,18 @@ export async function POST(request: Request) {
           if (skipExisting) {
             results.skipped++;
             results.processed++;
-            results.logs.push(`SKIPPED: ${slug} (Già presente)`);
+            results.logs.push(`SKIPPED: ${slug} (Già presente nel database)`);
             continue;
           }
           if (!updateExisting) {
             results.skipped++;
             results.processed++;
-            results.logs.push(`SKIPPED: ${slug} (Aggiornamento disattivato)`);
+            results.logs.push(`SKIPPED: ${slug} (Aggiornamento non richiesto)`);
             continue;
           }
         }
 
-        console.log(`Processing Fraterworks Product: ${cleanUrl}`);
+        console.log(`SCRAPING & TRANSLATING: ${cleanUrl}`);
         const data = await parseFraterworksProduct(cleanUrl);
         
         const materialData: any = {
@@ -61,11 +66,16 @@ export async function POST(request: Request) {
           fraterworksSlug: slug,
           referenceCode: data.referenceCode,
           appearance: data.appearance,
+          appearanceIt: data.appearanceIt,
           odourProfile: data.odourProfile,
+          odourProfileIt: data.odourProfileIt,
           longevity: data.longevity,
           uses: data.uses,
+          usesIt: data.usesIt,
           unNumber: data.unNumber,
           synonyms: data.collection,
+          description: data.description,
+          descriptionIt: data.descriptionIt,
         };
 
         let material;
@@ -75,8 +85,9 @@ export async function POST(request: Request) {
             data: materialData
           });
           results.updated++;
+          results.logs.push(`UPDATED: ${data.name}`);
         } else {
-          // Se non esiste ancora per slug/url, controlla per CAS come ultima spiaggia
+          // Ultimo controllo per CAS prima di creare (per evitare duplicati di sostanze uguali da fonti diverse)
           let materialByCas = null;
           if (data.cas) {
             materialByCas = await prisma.material.findUnique({ where: { cas: data.cas } });
@@ -88,15 +99,17 @@ export async function POST(request: Request) {
               data: materialData
             });
             results.updated++;
+            results.logs.push(`MERGED: ${data.name} (Trovato per CAS)`);
           } else {
             material = await prisma.material.create({
               data: materialData
             });
             results.created++;
+            results.logs.push(`CREATED: ${data.name}`);
           }
         }
 
-        // Gestione Documenti (Deduplica per materiale e tipo)
+        // Sincronizzazione Documenti
         if (data.documents && data.documents.length > 0) {
           for (const doc of data.documents) {
             await prisma.document.upsert({
@@ -113,16 +126,11 @@ export async function POST(request: Request) {
           }
         }
 
-        // Gestione Limiti IFRA Fraterworks
-        // 1. Cancella SOLO limiti Fraterworks vecchi
+        // Sincronizzazione Limiti IFRA
         await prisma.ifraLimit.deleteMany({
-          where: {
-            materialId: material.id,
-            source: "Fraterworks"
-          }
+          where: { materialId: material.id, source: "Fraterworks" }
         });
 
-        // 2. Salva nuovi limiti Fraterworks
         if (data.ifraLimits && data.ifraLimits.length > 0) {
           await prisma.ifraLimit.createMany({
             data: data.ifraLimits.map(l => ({
@@ -139,24 +147,24 @@ export async function POST(request: Request) {
         }
 
         results.processed++;
-        results.logs.push(`SUCCESS: ${data.name} (${existingMaterial ? 'Aggiornato' : 'Creato'})`);
 
-        // Delay 500ms
-        await new Promise(r => setTimeout(r, 500));
+        // Delay per evitare rate-limiting e saturazione
+        await new Promise(r => setTimeout(r, 400));
 
       } catch (err: any) {
-        console.error(`Error processing ${url}:`, err);
+        console.error(`FAILED ${url}:`, err.message);
         results.errors++;
-        results.logs.push(`ERROR: ${url} - ${err.message}`);
+        results.logs.push(`ERROR: ${url} -> ${err.message}`);
+        results.processed++;
       }
     }
 
-    console.log("IMPORT SUMMARY:", results);
+    console.log("BULK IMPORT COMPLETED", results);
 
     return NextResponse.json({ success: true, results });
 
   } catch (error: any) {
-    console.error("FRATERWORKS BULK ERROR:", error);
+    console.error("FRATERWORKS BULK SYSTEM ERROR:", error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

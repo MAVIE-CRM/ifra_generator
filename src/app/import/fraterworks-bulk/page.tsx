@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   Zap, 
   Search, 
@@ -17,11 +18,14 @@ import {
   Check,
   Info,
   Layers,
-  Activity
+  Activity,
+  ArrowRight,
+  RefreshCw
 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function FraterworksBulkPage() {
+  const router = useRouter();
   const [collectionUrl, setCollectionUrl] = useState('https://fraterworks.com/collections/aromachemicals');
   const [pageFrom, setPageFrom] = useState(1);
   const [pageTo, setPageTo] = useState(1);
@@ -31,6 +35,7 @@ export default function FraterworksBulkPage() {
   
   const [scanning, setScanning] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [importCompleted, setImportCompleted] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
   const [scanSummary, setScanSummary] = useState<any>(null);
   
@@ -48,7 +53,8 @@ export default function FraterworksBulkPage() {
     setScanning(true);
     setProducts([]);
     setScanSummary(null);
-    setLogs(["Avvio scansione intelligente..."]);
+    setImportCompleted(false);
+    setLogs([`Avvio scansione intelligente (Pag. ${pageFrom} - ${pageTo})...`]);
     
     try {
       const res = await fetch('/api/import/fraterworks-scan-collection', {
@@ -61,7 +67,7 @@ export default function FraterworksBulkPage() {
       if (data.success) {
         setProducts(data.products.map((p: any) => ({ ...p, selected: !p.existsInDatabase })));
         setScanSummary(data.summary);
-        setLogs(prev => [...prev, `Scansione completata. Trovati ${data.summary.totalFound} prodotti.`]);
+        setLogs(prev => [...prev, `Scansione completata. Trovati ${data.summary.totalFound} prodotti in ${data.summary.pagesScanned} pagine.`]);
       } else {
         setLogs(prev => [...prev, `ERRORE: ${data.error}`]);
       }
@@ -77,6 +83,7 @@ export default function FraterworksBulkPage() {
     if (selectedUrls.length === 0) return;
 
     setImporting(true);
+    setImportCompleted(false);
     setStats({ total: selectedUrls.length, processed: 0, created: 0, updated: 0, skipped: 0, errors: 0 });
     setLogs(prev => [...prev, `Inizio importazione di ${selectedUrls.length} prodotti...`]);
 
@@ -102,7 +109,10 @@ export default function FraterworksBulkPage() {
           errors: data.results.errors
         });
         setLogs(prev => [...prev, ...data.results.logs]);
-        setLogs(prev => [...prev, "Operazione completata."]);
+        setLogs(prev => [...prev, "Operazione completata con successo."]);
+        setImportCompleted(true);
+        // Forza il refresh della cache di Next.js per la pagina materiali
+        router.refresh();
       } else {
         setLogs(prev => [...prev, `ERRORE CRITICO: ${data.error}`]);
       }
@@ -120,20 +130,30 @@ export default function FraterworksBulkPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-700 pb-20">
+    <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-700 pb-20 px-4">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-primary">
             <Layers className="w-5 h-5" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Advanced Import v2</span>
+            <span className="text-[10px] font-black uppercase tracking-widest">Collection Scraper v2.1</span>
           </div>
           <h1 className="text-4xl font-black tracking-tighter text-gradient">Fraterworks Bulk Sync</h1>
-          <p className="text-foreground/40 text-sm">Sincronizzazione intelligente basata su range di pagine e deduplicazione automatica.</p>
+          <p className="text-foreground/40 text-sm">Sincronizzazione professionale con range di pagine e normalizzazione URL.</p>
         </div>
-        <Link href="/materials" className="px-5 py-2.5 bg-foreground/5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-foreground/10 transition-all border border-border">
-          Torna ai Materiali
-        </Link>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => router.refresh()} 
+            className="p-2.5 bg-foreground/5 rounded-xl text-foreground/40 hover:text-primary transition-colors border border-border"
+            title="Aggiorna Cache"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+          <Link href="/materials" className="flex items-center gap-2 px-5 py-2.5 bg-foreground/5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-foreground/10 transition-all border border-border">
+            Vai ai Materiali
+            <ArrowRight className="w-3 h-3" />
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -144,7 +164,7 @@ export default function FraterworksBulkPage() {
               <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
                 <Globe className="w-5 h-5" />
               </div>
-              <h2 className="text-xs font-black uppercase tracking-widest">Configurazione</h2>
+              <h2 className="text-xs font-black uppercase tracking-widest">Configurazione Scan</h2>
             </div>
 
             <div className="space-y-4">
@@ -166,6 +186,7 @@ export default function FraterworksBulkPage() {
                     className="w-full bg-foreground/5 border border-border rounded-xl px-4 py-3 text-xs font-mono"
                     value={pageFrom}
                     onChange={(e) => setPageFrom(parseInt(e.target.value))}
+                    min="1"
                   />
                 </div>
                 <div className="space-y-2">
@@ -175,12 +196,13 @@ export default function FraterworksBulkPage() {
                     className="w-full bg-foreground/5 border border-border rounded-xl px-4 py-3 text-xs font-mono"
                     value={pageTo}
                     onChange={(e) => setPageTo(parseInt(e.target.value))}
+                    min="1"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-foreground/40 px-1">Max Prodotti</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-foreground/40 px-1">Max Prodotti Totali</label>
                 <input
                   type="number"
                   className="w-full bg-foreground/5 border border-border rounded-xl px-4 py-3 text-xs font-mono"
@@ -199,7 +221,7 @@ export default function FraterworksBulkPage() {
                   />
                   <div className="flex flex-col">
                     <span className="text-[10px] font-black uppercase tracking-widest">Salta Presenti</span>
-                    <span className="text-[9px] text-foreground/40">Non importare se già nel DB</span>
+                    <span className="text-[9px] text-foreground/40">Ignora duplicati esistenti</span>
                   </div>
                 </label>
                 <label className="flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-foreground/[0.02] cursor-pointer transition-all">
@@ -210,8 +232,8 @@ export default function FraterworksBulkPage() {
                     className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
                   />
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-black uppercase tracking-widest">Aggiorna Presenti</span>
-                    <span className="text-[9px] text-foreground/40">Sincronizza se già nel DB</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest">Aggiorna Dati</span>
+                    <span className="text-[9px] text-foreground/40">Aggiorna se già nel DB</span>
                   </div>
                 </label>
               </div>
@@ -222,7 +244,7 @@ export default function FraterworksBulkPage() {
                 className="w-full bg-primary text-white py-4 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
               >
                 {scanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                {scanning ? "Scansione..." : "Avvia Scansione"}
+                {scanning ? "Scansione..." : "Analizza Pagine"}
               </button>
             </div>
           </div>
@@ -232,50 +254,84 @@ export default function FraterworksBulkPage() {
             <div className="luxury-card p-6 bg-primary/5 border-primary/20 animate-in zoom-in-95">
               <div className="flex items-center gap-2 mb-4">
                 <Info className="w-4 h-4 text-primary" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-primary">Esito Scansione</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-primary">Dati Scansione</span>
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between text-[11px]">
-                  <span className="text-foreground/40">Prodotti trovati:</span>
-                  <span className="font-bold">{scanSummary.totalFound}</span>
+                  <span className="text-foreground/40">Pagine scansionate:</span>
+                  <span className="font-bold text-primary">{scanSummary.pageFrom} - {scanSummary.pageTo}</span>
                 </div>
                 <div className="flex justify-between text-[11px]">
-                  <span className="text-foreground/40">Pagine lette:</span>
-                  <span className="font-bold">{scanSummary.pagesScanned}</span>
+                  <span className="text-foreground/40">Prodotti unici:</span>
+                  <span className="font-bold">{scanSummary.uniqueFound}</span>
                 </div>
                 <div className="flex justify-between text-[11px]">
                   <span className="text-foreground/40">Già nel Database:</span>
                   <span className="font-bold text-amber-500">{scanSummary.alreadyInDatabase}</span>
                 </div>
                 <div className="flex justify-between text-[11px]">
-                  <span className="text-foreground/40">Nuovi Prodotti:</span>
+                  <span className="text-foreground/40">Nuovi disponibili:</span>
                   <span className="font-bold text-emerald-500">{scanSummary.newProducts}</span>
                 </div>
               </div>
             </div>
           )}
+
+          {/* Report Finale Import */}
+          {importCompleted && (
+            <div className="luxury-card p-6 bg-emerald-500/5 border-emerald-500/20 animate-in slide-in-from-bottom-4">
+              <div className="flex items-center gap-2 mb-4">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Report Finale</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                 <div className="space-y-1">
+                    <div className="text-[10px] text-foreground/40 uppercase font-black">Creati</div>
+                    <div className="text-xl font-black text-emerald-500">{stats.created}</div>
+                 </div>
+                 <div className="space-y-1">
+                    <div className="text-[10px] text-foreground/40 uppercase font-black">Aggiornati</div>
+                    <div className="text-xl font-black text-primary">{stats.updated}</div>
+                 </div>
+                 <div className="space-y-1">
+                    <div className="text-[10px] text-foreground/40 uppercase font-black">Saltati</div>
+                    <div className="text-xl font-black text-amber-500">{stats.skipped}</div>
+                 </div>
+                 <div className="space-y-1">
+                    <div className="text-[10px] text-foreground/40 uppercase font-black">Errori</div>
+                    <div className="text-xl font-black text-red-500">{stats.errors}</div>
+                 </div>
+              </div>
+              <div className="mt-6 pt-6 border-t border-emerald-500/10">
+                 <Link href="/materials" className="w-full py-3 bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20">
+                    <Database className="w-3.5 h-3.5" />
+                    Vai al Database
+                 </Link>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Risultati */}
+        {/* Risultati e Logs */}
         <div className="lg:col-span-8 space-y-6">
           {products.length > 0 && (
-            <div className="luxury-card overflow-hidden">
+            <div className="luxury-card overflow-hidden animate-in fade-in duration-500">
               <div className="p-4 bg-foreground/[0.03] border-b border-border flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <ListChecks className="w-4 h-4 text-primary" />
-                  <span className="text-[10px] font-black uppercase tracking-widest text-foreground/60">Selezione Prodotti</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-foreground/60">Coda di Importazione</span>
                 </div>
                 <button
                   onClick={handleImport}
-                  disabled={importing}
-                  className="bg-emerald-500 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20"
+                  disabled={importing || products.filter(p => p.selected).length === 0}
+                  className="bg-emerald-500 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-50"
                 >
                   {importing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3 fill-white" />}
-                  Importa ({products.filter(p => p.selected).length})
+                  Importa Selezionati ({products.filter(p => p.selected).length})
                 </button>
               </div>
 
-              <div className="max-h-[500px] overflow-y-auto custom-scrollbar divide-y divide-border">
+              <div className="max-h-[400px] overflow-y-auto custom-scrollbar divide-y divide-border">
                 {products.map((product, idx) => (
                   <div key={idx} className="flex items-center gap-4 p-4 hover:bg-foreground/[0.01] transition-colors">
                     <input 
@@ -288,7 +344,7 @@ export default function FraterworksBulkPage() {
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold truncate">{product.title}</span>
                         {product.existsInDatabase && (
-                          <span className="px-1.5 py-0.5 bg-amber-500/10 text-amber-500 text-[8px] font-black uppercase rounded">DB</span>
+                          <span className="px-1.5 py-0.5 bg-amber-500/10 text-amber-500 text-[8px] font-black uppercase rounded">In Archivio</span>
                         )}
                       </div>
                       <div className="text-[9px] text-foreground/30 truncate font-mono">{product.url}</div>
@@ -301,25 +357,30 @@ export default function FraterworksBulkPage() {
           )}
 
           {/* Terminal Logs */}
-          <div className="luxury-card bg-[#0A0A0A] overflow-hidden">
+          <div className="luxury-card bg-[#0A0A0A] overflow-hidden shadow-2xl">
              <div className="px-4 py-2 border-b border-white/5 bg-white/5 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                    <Activity className="w-3 h-3 text-primary" />
-                   <span className="text-[9px] font-black uppercase tracking-widest text-white/40">Sync Engine Logs</span>
+                   <span className="text-[9px] font-black uppercase tracking-widest text-white/40">Sync Engine Output</span>
                 </div>
                 {importing && (
                   <div className="text-[9px] font-mono text-primary animate-pulse">
-                    PROGRESS: {stats.processed}/{stats.total}
+                    PROCESSING: {stats.processed}/{stats.total}
                   </div>
                 )}
              </div>
              <div className="p-6 h-80 overflow-y-auto font-mono text-[10px] space-y-1 custom-scrollbar">
                 {logs.length === 0 ? (
-                  <div className="text-white/10 italic">In attesa di scansione...</div>
+                  <div className="text-white/10 italic">Engine in standby. Avvia una scansione...</div>
                 ) : (
                   logs.map((log, i) => (
-                    <div key={i} className={`flex gap-3 ${log.includes('ERROR') ? 'text-red-400' : log.includes('SUCCESS') ? 'text-emerald-400' : log.includes('SKIPPED') ? 'text-amber-400' : 'text-white/40'}`}>
-                      <span className="opacity-20">{i+1}</span>
+                    <div key={i} className={`flex gap-3 ${
+                      log.includes('ERROR') ? 'text-red-400' : 
+                      log.includes('CREATED') || log.includes('SUCCESS') ? 'text-emerald-400' : 
+                      log.includes('UPDATED') || log.includes('MERGED') ? 'text-primary' :
+                      log.includes('SKIPPED') ? 'text-amber-400' : 'text-white/40'
+                    }`}>
+                      <span className="opacity-20 text-[8px] w-4">{i+1}</span>
                       <span>{log}</span>
                     </div>
                   ))

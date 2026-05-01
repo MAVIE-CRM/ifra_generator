@@ -1,4 +1,5 @@
 import { normalizeOptionalUrl } from '../normalizeUrl';
+import { translateToItalian } from '../translate';
 
 export interface FraterworksIfraLimit {
   amendment: string;
@@ -11,14 +12,18 @@ export interface FraterworksImportResult {
   name: string;
   cas: string | null;
   description: string | null;
+  descriptionIt: string | null;
   sourceUrl: string;
   supplier: string;
   referenceCode: string | null;
   collection: string | null;
   appearance: string | null;
+  appearanceIt: string | null;
   odourProfile: string | null;
+  odourProfileIt: string | null;
   longevity: string | null;
   uses: string | null;
+  usesIt: string | null;
   unNumber: string | null;
   ifraLimits: FraterworksIfraLimit[];
   primaryIfraLimit: FraterworksIfraLimit | null;
@@ -71,6 +76,14 @@ export async function parseFraterworksProduct(cleanUrl: string): Promise<Fraterw
     const appearance = extractSection('Appearance');
     const longevity = extractSection('Longevity');
     const collectionMatch = html.match(/([A-Za-z\s]+Collection)/i);
+
+    // --- TRADUZIONE AUTOMATICA GRATUITA ---
+    console.log(`TRANSLATING FIELDS FOR: ${cleanUrl}`);
+    const [odourProfileIt, usesIt, appearanceIt] = await Promise.all([
+      translateToItalian(odourProfile),
+      translateToItalian(uses),
+      translateToItalian(appearance)
+    ]);
 
     // --- MOTORE PARSING IFRA AVANZATO ---
     const rawIfraLimits: FraterworksIfraLimit[] = [];
@@ -156,15 +169,19 @@ export async function parseFraterworksProduct(cleanUrl: string): Promise<Fraterw
     return {
       name: name,
       cas: casMatch ? casMatch[1].trim() : null,
-      description: 'Importato da Fraterworks',
+      description: 'Imported from Fraterworks',
+      descriptionIt: 'Importato da Fraterworks',
       sourceUrl: cleanUrl,
       supplier: 'Fraterworks',
       referenceCode: refMatch ? refMatch[1].trim() : null,
       collection: collectionMatch ? collectionMatch[1].trim() : null,
       appearance: appearance,
+      appearanceIt: appearanceIt,
       odourProfile: odourProfile,
+      odourProfileIt: odourProfileIt,
       longevity: longevity,
       uses: uses,
+      usesIt: usesIt,
       unNumber: unMatch ? unMatch[1].trim() : null,
       ifraLimits: ifraLimits,
       primaryIfraLimit: primaryIfra,
@@ -185,14 +202,18 @@ export async function parseFraterworksProduct(cleanUrl: string): Promise<Fraterw
       name: fallbackName,
       cas: null,
       description: 'Importazione parziale (fetch fallita)',
+      descriptionIt: 'Importazione parziale (errore)',
       sourceUrl: cleanUrl,
       supplier: 'Fraterworks',
       referenceCode: null,
       collection: null,
       appearance: null,
+      appearanceIt: null,
       odourProfile: null,
+      odourProfileIt: null,
       longevity: null,
       uses: null,
+      usesIt: null,
       unNumber: null,
       ifraLimits: [],
       primaryIfraLimit: null,
