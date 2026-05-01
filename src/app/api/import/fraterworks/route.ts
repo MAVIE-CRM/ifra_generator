@@ -24,16 +24,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Importazione con il URL pulito
+    // 2. Importazione (il parser gestisce già la traduzione internamente)
     const data = await importFromFraterworks(cleanUrl);
     
-    // 2b. Traduzione Automatica (parallela per efficienza)
-    const [appearanceIt, odourProfileIt, usesIt, descriptionIt] = await Promise.all([
-      translateToItalian(data.appearance),
-      translateToItalian(data.odourProfile),
-      translateToItalian(data.uses),
-      translateToItalian(data.description)
-    ]);
+    const odourProfileIt = data.odourProfileIt && data.odourProfileIt.trim().toLowerCase() !== data.odourProfile?.trim().toLowerCase() ? data.odourProfileIt : null;
+    const usesIt = data.usesIt && data.usesIt.trim().toLowerCase() !== data.uses?.trim().toLowerCase() ? data.usesIt : null;
+    const appearanceIt = data.appearanceIt && data.appearanceIt.trim().toLowerCase() !== data.appearance?.trim().toLowerCase() ? data.appearanceIt : null;
+    const descriptionIt = data.descriptionIt && data.descriptionIt.trim().toLowerCase() !== data.description?.trim().toLowerCase() ? data.descriptionIt : null;
 
     if (previewOnly) {
       return NextResponse.json({ 
@@ -50,6 +47,10 @@ export async function POST(request: Request) {
     
     // 3. Upsert Material
     const materialId = data.cas || 'fw-' + data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+    // Determiniamo lo stato IFRA: se abbiamo limiti (anche "No Restriction") lo stato è "found"
+    const hasIfraData = data.ifraLimits && data.ifraLimits.length > 0;
+    const ifraStatus = hasIfraData ? "found" : "not_found";
 
     const material = await prisma.material.upsert({
       where: { cas: data.cas ? data.cas : materialId },
@@ -69,6 +70,7 @@ export async function POST(request: Request) {
         usesIt: usesIt,
         unNumber: data.unNumber,
         ifraAmendment: data.primaryIfraLimit?.amendment,
+        ifraStatus: ifraStatus,
         documents: {
           deleteMany: {},
           create: data.documents.map(doc => ({
@@ -83,10 +85,25 @@ export async function POST(request: Request) {
             amendment: limit.amendment,
             category: limit.category,
             limit: limit.limitPercent,
+            limitText: (limit as any).isNoRestriction ? "No Limit" : `${limit.limitPercent}%`,
+            isNoRestriction: (limit as any).isNoRestriction || false,
             context: limit.context,
-            isRestricted: true,
+            isRestricted: !(limit as any).isNoRestriction,
           })),
         },
+        variants: {
+          deleteMany: {},
+          create: data.variants.map(v => ({
+            variantId: v.variantId,
+            title: v.title,
+            option1: v.option1,
+            option2: v.option2,
+            option3: v.option3,
+            price: v.price,
+            currency: v.currency,
+            available: v.available
+          }))
+        }
       },
       create: {
         name: data.name,
@@ -105,6 +122,7 @@ export async function POST(request: Request) {
         usesIt: usesIt,
         unNumber: data.unNumber,
         ifraAmendment: data.primaryIfraLimit?.amendment,
+        ifraStatus: data.ifraLimits.length > 0 ? "found" : "not_found",
         documents: {
           create: data.documents.map(doc => ({
             type: doc.type,
@@ -117,10 +135,24 @@ export async function POST(request: Request) {
             amendment: limit.amendment,
             category: limit.category,
             limit: limit.limitPercent,
+            limitText: (limit as any).isNoRestriction ? "No Limit" : `${limit.limitPercent}%`,
+            isNoRestriction: (limit as any).isNoRestriction || false,
             context: limit.context,
-            isRestricted: true,
+            isRestricted: !(limit as any).isNoRestriction,
           })),
         },
+        variants: {
+          create: data.variants.map(v => ({
+            variantId: v.variantId,
+            title: v.title,
+            option1: v.option1,
+            option2: v.option2,
+            option3: v.option3,
+            price: v.price,
+            currency: v.currency,
+            available: v.available
+          }))
+        }
       },
     });
 

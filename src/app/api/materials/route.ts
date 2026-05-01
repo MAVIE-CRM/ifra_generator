@@ -13,6 +13,7 @@ export async function GET() {
           ]
         },
         documents: true,
+        variants: true,
       },
       orderBy: { name: 'asc' },
     });

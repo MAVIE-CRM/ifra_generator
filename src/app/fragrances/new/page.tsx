@@ -58,21 +58,43 @@ export default function NewFragrancePage() {
     }
   }, [selectedItems, category, name, materials]);
 
-  const handleSave = async () => {
-    if (!name || selectedItems.length === 0) return;
+  const [isSaving, setIsSaving] = useState(false);
 
+  const handleSave = async () => {
+    // Filtriamo le righe vuote (senza materiale selezionato)
+    const validItems = selectedItems.filter(item => item.materialId);
+
+    if (!name || validItems.length === 0) {
+      alert("Inserisci un nome e almeno un ingrediente valido.");
+      return;
+    }
+
+    setIsSaving(true);
     try {
       const response = await fetch('/api/fragrances', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, description, items: selectedItems }),
+        body: JSON.stringify({ 
+          name, 
+          description, 
+          items: validItems.map(item => ({
+            materialId: item.materialId,
+            parts: Number(item.parts) || 0
+          }))
+        }),
       });
 
       if (response.ok) {
         router.push('/fragrances');
+      } else {
+        const err = await response.json();
+        alert("Errore durante il salvataggio: " + (err.error || "Riprova."));
       }
     } catch (error) {
       console.error('Save error:', error);
+      alert("Errore di connessione durante il salvataggio.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -133,12 +155,184 @@ export default function NewFragrancePage() {
     }
   };
 
+  // --- STATO AI ASSISTANT ---
+  const [isAiOpen, setIsAiOpen] = useState(false);
+  const [aiMessages, setAiMessages] = useState<any[]>([
+    { role: 'assistant', content: 'Ciao! Sono il tuo assistente profumiere. Dimmi che tipo di fragranza hai in mente e ti aiuterò a comporla usando i materiali nel tuo database.' }
+  ]);
+  const [aiInput, setAiInput] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const [selectedPricingVariants, setSelectedPricingVariants] = useState<Record<number, string>>({}); // index -> variantId
+
+  const calculateCost = () => {
+    if (!selectedItems.length || !materials.length) return { perGram: 0, perKg: 0 };
+    
+    let totalCost = 0;
+    const totalParts = selectedItems.reduce((acc, item) => acc + (Number(item.parts) || 0), 0);
+    
+    if (totalParts === 0) return { perGram: 0, perKg: 0 };
+
+    selectedItems.forEach((item, index) => {
+      const material = materials.find(m => m.id === item.materialId);
+      if (!material || !item.parts) return;
+
+      const variantId = selectedPricingVariants[index] || (material.variants && material.variants[0]?.variantId);
+      const variant = material.variants?.find((v: any) => v.variantId === variantId);
+
+      if (variant && variant.price) {
+        // Estrai peso in grammi dal titolo (es: "10g", "1kg")
+        let weightInGrams = 1;
+        const weightStr = (variant.weight || variant.title || '').toLowerCase();
+        if (weightStr.includes('kg')) weightInGrams = parseFloat(weightStr) * 1000;
+        else if (weightStr.includes('g')) weightInGrams = parseFloat(weightStr);
+        
+        const pricePerGram = variant.price / weightInGrams;
+        const itemWeightInFormula = (Number(item.parts) / totalParts) * 1000; // Costo per 1kg di concentrato
+        totalCost += pricePerGram * itemWeightInFormula;
+      }
+    });
+
+    return { 
+      perGram: totalCost / 1000, 
+      perKg: totalCost 
+    };
+  };
+
+  const costs = calculateCost();
+
+  const handleAiSend = async () => {
+    if (!aiInput.trim() || aiLoading) return;
+    
+    const newMessages = [...aiMessages, { role: 'user', content: aiInput }];
+    setAiMessages(newMessages);
+    setAiInput('');
+    setAiLoading(true);
+
+    try {
+      const res = await fetch('/api/ai/formula-assistant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: newMessages, category })
+      });
+      const data = await res.json();
+      if (data.message) {
+        setAiMessages([...newMessages, { role: 'assistant', content: data.message }]);
+      }
+    } catch (err) {
+      console.error("AI Error:", err);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const applyAiFormula = (content: string) => {
+    const match = content.match(/\[FORMULA_START\]([\s\S]*?)\[FORMULA_END\]/);
+    if (match && match[1]) {
+      setSmartPasteText(match[1].trim());
+      setIsSmartPasteOpen(true);
+      setIsAiOpen(false); // Chiudi chat per mostrare l'importatore
+      // Scroll to top to see smart paste
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
   return (
-    <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+    <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20 relative">
+      
+      {/* --- AI ASSISTANT SIDEBAR --- */}
+      <div className={`fixed top-0 right-0 h-full w-full md:w-96 bg-white shadow-2xl z-[100] transform transition-transform duration-500 ease-out border-l border-border flex flex-col ${isAiOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className="p-6 bg-gradient-to-br from-primary to-accent text-white flex items-center justify-between">
+           <div className="flex items-center gap-2">
+              <Zap className="w-5 h-5 fill-white/20" />
+              <h3 className="font-bold uppercase tracking-widest text-sm">AI Formula Assistant</h3>
+           </div>
+           <button onClick={() => setIsAiOpen(false)} className="p-2 hover:bg-white/10 rounded-full">
+              <X className="w-5 h-5" />
+           </button>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-slate-50">
+          {aiMessages.map((msg, i) => (
+            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed shadow-sm ${
+                msg.role === 'user' 
+                  ? 'bg-primary text-white rounded-tr-none' 
+                  : 'bg-white text-slate-700 border border-border rounded-tl-none'
+              }`}>
+                <div className="whitespace-pre-wrap">{msg.content.replace(/\[FORMULA_START\][\s\S]*?\[FORMULA_END\]/, '(Formula suggerita sotto)')}</div>
+                
+                {msg.role === 'assistant' && msg.content.includes('[FORMULA_START]') && (
+                  <button 
+                    onClick={() => applyAiFormula(msg.content)}
+                    className="mt-4 w-full bg-emerald-500 text-white py-2 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-emerald-600 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Applica Formula Suggerita
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+          {aiLoading && (
+            <div className="flex justify-start">
+              <div className="bg-white p-4 rounded-2xl border border-border flex items-center gap-2">
+                 <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" />
+                 <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:0.2s]" />
+                 <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:0.4s]" />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="p-6 bg-white border-t border-border">
+           <div className="relative">
+              <textarea 
+                placeholder="Chiedi un suggerimento creativo..."
+                className="w-full bg-slate-50 border border-border rounded-2xl p-4 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none h-24"
+                value={aiInput}
+                onChange={(e) => setAiInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleAiSend();
+                  }
+                }}
+              />
+              <button 
+                onClick={handleAiSend}
+                disabled={aiLoading || !aiInput.trim()}
+                className="absolute bottom-4 right-4 p-2 bg-primary text-white rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-all"
+              >
+                <Zap className="w-4 h-4" />
+              </button>
+           </div>
+        </div>
+      </div>
+
+      {/* --- AI FLOATING BUTTON --- */}
+      <button 
+        onClick={() => setIsAiOpen(true)}
+        className="fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center shadow-2xl shadow-primary/40 hover:scale-110 active:scale-95 transition-all z-50 group"
+      >
+        <Zap className="w-8 h-8 text-white fill-white/10 group-hover:rotate-12 transition-transform" />
+        <span className="absolute -top-12 right-0 bg-slate-900 text-white text-[10px] font-black py-2 px-4 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+           AI FORMULA ASSISTANT
+        </span>
+      </button>
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h1 className="text-4xl font-bold tracking-tight text-gradient italic">Formula Studio</h1>
-          <p className="text-foreground/60 mt-1">Sviluppa le tue creazioni con validazione IFRA ufficiale in tempo reale.</p>
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => router.push('/fragrances')}
+            className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-slate-900 hover:border-slate-900 transition-all shadow-sm group"
+          >
+            <Plus className="w-5 h-5 rotate-45 group-hover:scale-110 transition-transform" />
+          </button>
+          <div>
+            <h1 className="text-4xl font-bold tracking-tight text-gradient italic">Formula Studio</h1>
+            <p className="text-foreground/60 mt-1">Sviluppa le tue creazioni con validazione IFRA ufficiale in tempo reale.</p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-4 py-2 bg-foreground/5 rounded-xl border border-border shadow-inner">
@@ -159,12 +353,16 @@ export default function NewFragrancePage() {
              </select>
           </div>
           <button 
-            onClick={handleSave}
-            disabled={!name || selectedItems.length === 0}
-            className="flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-xl font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
+            onClick={handleSave} 
+            disabled={isSaving || !name || selectedItems.length === 0} 
+            className="flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-xl font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 disabled:opacity-50 min-w-[160px] justify-center"
           >
-            <Save className="w-4 h-4" />
-            Salva Formula
+            {isSaving ? (
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <Save className="w-4 h-4" />
+            )}
+            {isSaving ? 'Salvataggio...' : 'Salva Formula'}
           </button>
         </div>
       </div>
@@ -265,6 +463,19 @@ export default function NewFragrancePage() {
                           <option key={m.id} value={m.id}>{m.name}</option>
                         ))}
                       </select>
+                      {item.materialId && (
+                        <div className="mt-1 flex items-center gap-2">
+                           <select 
+                             className="text-[9px] bg-foreground/5 border-none rounded px-1.5 py-0.5 focus:outline-none font-medium"
+                             value={selectedPricingVariants[index] || materials.find(m => m.id === item.materialId)?.variants[0]?.variantId}
+                             onChange={(e) => setSelectedPricingVariants({...selectedPricingVariants, [index]: e.target.value})}
+                           >
+                             {materials.find(m => m.id === item.materialId)?.variants?.map((v: any) => (
+                               <option key={v.variantId} value={v.variantId}>{v.title} - €{v.price}</option>
+                             ))}
+                           </select>
+                        </div>
+                      )}
                     </div>
                     <div className="col-span-2 px-2">
                       <input
@@ -408,6 +619,32 @@ export default function NewFragrancePage() {
                  <span>Analisi in Tempo Reale</span>
                  <span>Total Parts: {calculation?.totalParts || 0}</span>
               </div>
+            </div>
+          </div>
+
+          {/* Financial Summary Panel */}
+          <div className="luxury-card overflow-hidden shadow-2xl shadow-emerald-500/10 border-emerald-500/20">
+            <div className="p-4 bg-gradient-to-br from-emerald-600 to-teal-700 text-white">
+               <div className="flex items-center gap-2">
+                  <Calculator className="w-4 h-4" />
+                  <span className="text-xs font-bold uppercase tracking-widest opacity-80">Economic Analysis</span>
+               </div>
+            </div>
+            
+            <div className="p-8 space-y-6">
+              <div className="flex justify-between items-end border-b border-border pb-6">
+                <div className="space-y-1">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-foreground/40">Costo Stimato (g)</div>
+                  <div className="text-2xl font-black text-slate-900">€{costs.perGram.toFixed(4)}</div>
+                </div>
+                <div className="text-right space-y-1">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-foreground/40">Costo Stimato (Kg)</div>
+                  <div className="text-4xl font-black text-emerald-600">€{costs.perKg.toFixed(2)}</div>
+                </div>
+              </div>
+              <p className="text-[9px] text-foreground/40 italic leading-relaxed">
+                Il calcolo si basa sulla variante di prezzo selezionata per ogni ingrediente. I costi sono stimati per 1Kg di concentrato puro.
+              </p>
             </div>
           </div>
         </div>

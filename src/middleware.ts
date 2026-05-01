@@ -5,20 +5,19 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const authToken = request.cookies.get('auth_token')?.value;
 
-  // 1. Pagine pubbliche (Aperte per Health Check e Landing)
+  // 1. Pagine pubbliche (Solo Login e API di Auth)
   const isLoginPage = pathname === '/login';
-  const isRootPage = pathname === '/';
   const isAuthApi = pathname.startsWith('/api/auth');
-  const isHealthCheck = pathname === '/api/health';
   const isPublicAsset = pathname.startsWith('/_next') || pathname.startsWith('/favicon.ico');
 
-  if (isLoginPage || isRootPage || isAuthApi || isHealthCheck || isPublicAsset) {
+  if (isLoginPage || isAuthApi || isPublicAsset) {
     return NextResponse.next();
   }
 
-  // 2. Controllo Autenticazione (Tutto il resto è protetto)
-  if (!authToken) {
+  // 2. Controllo Autenticazione (Tutto il resto, inclusa la root '/', è protetto)
+  if (!authToken || authToken.trim() === '') {
     const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('from', pathname);
     return NextResponse.redirect(loginUrl);
   }
 

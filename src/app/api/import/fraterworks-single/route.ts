@@ -40,6 +40,11 @@ export async function POST(request: NextRequest) {
     console.log(`IMPORTING SINGLE: ${cleanUrl}`);
     const data = await parseFraterworksProduct(cleanUrl);
 
+    const odourProfileIt = data.odourProfileIt && data.odourProfileIt.trim().toLowerCase() !== data.odourProfile?.trim().toLowerCase() ? data.odourProfileIt : null;
+    const usesIt = data.usesIt && data.usesIt.trim().toLowerCase() !== data.uses?.trim().toLowerCase() ? data.usesIt : null;
+    const appearanceIt = data.appearanceIt && data.appearanceIt.trim().toLowerCase() !== data.appearance?.trim().toLowerCase() ? data.appearanceIt : null;
+    const descriptionIt = data.descriptionIt && data.descriptionIt.trim().toLowerCase() !== data.description?.trim().toLowerCase() ? data.descriptionIt : null;
+
     // 3. Preparazione dati
     const materialData: any = {
       name: data.name,
@@ -49,16 +54,16 @@ export async function POST(request: NextRequest) {
       fraterworksSlug: slug,
       referenceCode: data.referenceCode,
       appearance: data.appearance,
-      appearanceIt: data.appearanceIt,
+      appearanceIt: appearanceIt,
       odourProfile: data.odourProfile,
-      odourProfileIt: data.odourProfileIt,
+      odourProfileIt: odourProfileIt,
       longevity: data.longevity,
       uses: data.uses,
-      usesIt: data.usesIt,
+      usesIt: usesIt,
       unNumber: data.unNumber,
       synonyms: data.collection,
       description: data.description,
-      descriptionIt: data.descriptionIt,
+      descriptionIt: descriptionIt,
       ifraStatus: data.ifraLimits.length > 0 ? "found" : "not_found",
     };
 

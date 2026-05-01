@@ -31,6 +31,8 @@ model Material {
   uses          String?
   usesIt        String?
   unNumber      String?
+  collection    String?  // Categoria/Collezione (es. "Aroma Chemical", "Essential Oil")
+  tags          String[] // Tag aggiuntivi
   fraterworksSlug String? @unique
   ifraAmendment String?
 

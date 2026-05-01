@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { parseFraterworksProduct } from '@/lib/import/fraterworks';
 
+// Route for material synchronization from Fraterworks
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -34,6 +35,10 @@ export async function POST(
 
     // 3. Aggiornamento atomico del materiale
     await prisma.$transaction(async (tx) => {
+      const odourProfileIt = freshData.odourProfileIt && freshData.odourProfileIt.trim().toLowerCase() !== freshData.odourProfile?.trim().toLowerCase() ? freshData.odourProfileIt : null;
+      const usesIt = freshData.usesIt && freshData.usesIt.trim().toLowerCase() !== freshData.uses?.trim().toLowerCase() ? freshData.usesIt : null;
+      const appearanceIt = freshData.appearanceIt && freshData.appearanceIt.trim().toLowerCase() !== freshData.appearance?.trim().toLowerCase() ? freshData.appearanceIt : null;
+
       // Aggiorna campi base
       await tx.material.update({
         where: { id },
@@ -42,12 +47,13 @@ export async function POST(
           referenceCode: freshData.referenceCode,
           unNumber: freshData.unNumber,
           appearance: freshData.appearance,
-          appearanceIt: freshData.appearanceIt,
+          appearanceIt: appearanceIt,
           odourProfile: freshData.odourProfile,
-          odourProfileIt: freshData.odourProfileIt,
+          odourProfileIt: odourProfileIt,
           uses: freshData.uses,
-          usesIt: freshData.usesIt,
-          ifraStatus: freshData.ifraLimits.length > 0 ? "found" : "not_found",
+          usesIt: usesIt,
+          collection: freshData.collection || material.collection,
+          ifraStatus: (freshData.ifraLimits && freshData.ifraLimits.length > 0) ? "found" : "not_found",
           updatedAt: new Date()
         }
       });
@@ -64,9 +70,12 @@ export async function POST(
             materialId: id,
             category: l.category,
             limit: l.limitPercent,
+            limitText: (l as any).isNoRestriction ? "No Limit" : `${l.limitPercent}%`,
             amendment: l.amendment,
             source: "Fraterworks",
-            isNoRestriction: l.limitPercent >= 100
+            isNoRestriction: (l as any).isNoRestriction || false,
+            isRestricted: !(l as any).isNoRestriction,
+            context: l.context
           }))
         });
       }

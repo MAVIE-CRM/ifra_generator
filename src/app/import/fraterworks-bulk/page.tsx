@@ -124,7 +124,7 @@ export default function FraterworksBulkPage() {
       }
       
       // Piccolo delay per non saturare il server o le API di traduzione
-      await new Promise(r => setTimeout(r, 200));
+      await new Promise(r => setTimeout(r, 500));
     }
 
     setLogs(prev => [...prev, `--- OPERAZIONE COMPLETATA ---`]);

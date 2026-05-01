@@ -35,11 +35,34 @@ export async function POST(request: Request) {
       const res = await fetch(myMemoryUrl);
       results.myMemory.status = res.status;
       results.myMemory.data = await res.json();
-      if (!results.final && res.ok && results.myMemory.data.responseData?.translatedText) {
-        results.final = results.myMemory.data.responseData.translatedText;
-      }
     } catch (e: any) {
       results.myMemory.error = e.message;
+    }
+
+    // 3. TEST OPENAI
+    results.openai = { status: null, data: null, error: null };
+    if (process.env.OPENAI_API_KEY) {
+      try {
+        const res = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: `Translate to Italian: ${text}` }],
+            max_tokens: 500
+          })
+        });
+        results.openai.status = res.status;
+        results.openai.data = await res.json();
+        if (res.ok && results.openai.data.choices?.[0]?.message?.content) {
+          results.final = results.openai.data.choices[0].message.content.trim();
+        }
+      } catch (e: any) {
+        results.openai.error = e.message;
+      }
     }
 
     return NextResponse.json({ success: true, results });
