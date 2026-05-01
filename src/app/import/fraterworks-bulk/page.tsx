@@ -80,48 +80,57 @@ export default function FraterworksBulkPage() {
   };
 
   const handleImport = async () => {
-    const selectedUrls = products.filter(p => p.selected).map(p => p.url);
-    if (selectedUrls.length === 0) return;
+    const selectedProducts = products.filter(p => p.selected);
+    if (selectedProducts.length === 0) return;
 
     setImporting(true);
     setImportCompleted(false);
-    setStats({ total: selectedUrls.length, processed: 0, created: 0, updated: 0, skipped: 0, errors: 0 });
-    setLogs(prev => [...prev, `Inizio importazione di ${selectedUrls.length} prodotti...`]);
+    const newStats = { total: selectedProducts.length, processed: 0, created: 0, updated: 0, skipped: 0, errors: 0 };
+    setStats(newStats);
+    setLogs(prev => [...prev, `--- AVVIO IMPORTAZIONE SEQUENZIALE (${selectedProducts.length} prodotti) ---`]);
 
-    try {
-      const res = await fetch('/api/import/fraterworks-bulk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          productUrls: selectedUrls, 
-          skipExisting, 
-          updateExisting 
-        })
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        setStats({
-          total: selectedUrls.length,
-          processed: data.results.processed,
-          created: data.results.created,
-          updated: data.results.updated,
-          skipped: data.results.skipped,
-          errors: data.results.errors
+    for (const product of selectedProducts) {
+      try {
+        setLogs(prev => [...prev, `ELABORAZIONE: ${product.title}...`]);
+        
+        const res = await fetch('/api/import/fraterworks-single', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            url: product.url, 
+            skipExisting, 
+            updateExisting 
+          })
         });
-        setLogs(prev => [...prev, ...data.results.logs]);
-        setLogs(prev => [...prev, "Operazione completata con successo."]);
-        setImportCompleted(true);
-        // Forza il refresh della cache di Next.js per la pagina materiali
-        router.refresh();
-      } else {
-        setLogs(prev => [...prev, `ERRORE CRITICO: ${data.error}`]);
+
+        const data = await res.json();
+        
+        if (data.success) {
+          if (data.status === 'CREATED') newStats.created++;
+          else if (data.status === 'UPDATED' || data.status === 'MERGED') newStats.updated++;
+          else if (data.status === 'SKIPPED') newStats.skipped++;
+          
+          setLogs(prev => [...prev, `SUCCESS: ${data.name || product.title} -> ${data.status} (IFRA: ${data.ifraCount}, Var: ${data.variantCount})`]);
+        } else {
+          newStats.errors++;
+          setLogs(prev => [...prev, `ERROR: ${product.title} -> ${data.error}`]);
+        }
+      } catch (err: any) {
+        newStats.errors++;
+        setLogs(prev => [...prev, `CRITICAL: ${product.title} -> ${err.message}`]);
+      } finally {
+        newStats.processed++;
+        setStats({ ...newStats });
       }
-    } catch (err: any) {
-      setLogs(prev => [...prev, `ERRORE: ${err.message}`]);
-    } finally {
-      setImporting(false);
+      
+      // Piccolo delay per non saturare il server o le API di traduzione
+      await new Promise(r => setTimeout(r, 200));
     }
+
+    setLogs(prev => [...prev, `--- OPERAZIONE COMPLETATA ---`]);
+    setImportCompleted(true);
+    router.refresh();
+    setImporting(false);
   };
 
   const toggleProduct = (index: number) => {
