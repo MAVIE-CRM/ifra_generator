@@ -164,8 +164,14 @@ export default function MaterialsPage() {
             const mainLimit = m.ifraLimits?.find((l: any) => l.category === 'cat4') || m.ifraLimits?.[0];
             
             return (
-              <div key={m.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col hover:shadow-md transition-all group relative">
-                <div className="space-y-5 flex-1">
+              <div 
+                key={m.id} 
+                className={`bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all group relative h-fit ${
+                  isExpanded ? 'lg:col-span-3 md:col-span-2' : ''
+                }`}
+              >
+                <div className="p-6">
+                  <div className="space-y-5">
                   <div className="flex items-start justify-between">
                     <div className="space-y-1">
                       <h3 className="text-lg font-bold text-slate-900 leading-tight group-hover:text-emerald-700 transition-colors">{m.name}</h3>
