@@ -14,119 +14,111 @@ export async function POST(request: Request) {
   try {
     const { collectionUrl, pageFrom = 1, pageTo = 1, maxProducts } = await request.json();
 
-    // LOG DI AVVIO RIGOROSO
     console.log("-----------------------------------------");
     console.log("PAGE RANGE START:", pageFrom);
     console.log("PAGE RANGE END:", pageTo);
-    console.log("-----------------------------------------");
 
     if (!collectionUrl || !collectionUrl.includes('fraterworks.com/collections/')) {
       return NextResponse.json({ success: false, error: "URL non valido. Inserire una collection Fraterworks." }, { status: 400 });
     }
 
-    if (pageFrom < 1 || pageTo < pageFrom) {
-      return NextResponse.json({ success: false, error: "Range pagine non valido." }, { status: 400 });
-    }
-
-    const baseUrl = new URL(collectionUrl).origin;
+    const baseUrl = "https://fraterworks.com";
     const allProducts: any[] = [];
-    const seenSlugs = new Set<string>();
+    const globalSeenSlugs = new Set<string>();
 
     const summary = {
       pageFrom,
       pageTo,
       pagesScanned: 0,
-      totalFound: 0,
-      uniqueFound: 0,
-      duplicatesInScan: 0,
-      alreadyInDatabase: 0,
-      newProducts: 0
+      totalRawFound: 0,
+      totalUniqueAcrossPages: 0,
+      alreadyInDatabase: 0
     };
 
-    // CICLO RIGIDO: NON ESCIRA' MAI DAL RANGE [pageFrom -> pageTo]
     for (let page = pageFrom; page <= pageTo; page++) {
       const pageUrl = buildCollectionPageUrl(collectionUrl, page);
       console.log("SCANNING PAGE:", pageUrl);
 
       const response = await fetch(pageUrl, {
         headers: { 'User-Agent': 'IFRA_GENERATOR/1.0' },
-        cache: 'no-store'
+        cache: 'no-store',
+        redirect: 'manual' // Evitiamo redirect automatici strani
       });
 
-      if (!response.ok) {
+      if (!response.ok && response.status !== 301 && response.status !== 302) {
         console.warn(`STOP: Page ${page} returned status ${response.status}`);
         break; 
       }
 
       const html = await response.text();
+      console.log("PAGE HTML LENGTH:", html.length);
+      
       const $ = cheerio.load(html);
       summary.pagesScanned++;
 
-      const links = $('a[href*="/products/"]');
-      const foundOnThisPage = [];
+      // REGOLA ASSOLUTA: Cerchiamo i prodotti solo nell'area principale (MAIN)
+      // Escludiamo header, footer e sezioni di raccomandazione
+      const mainContent = $('main, #MainContent, .main-content').first();
+      const searchArea = mainContent.length > 0 ? mainContent : $('body');
       
-      for (const el of links.toArray()) {
-        const href = $(el).attr('href');
-        const title = $(el).text().trim() || $(el).find('img').attr('alt')?.trim() || "Prodotto senza titolo";
+      // Selettore specifico per i prodotti nella griglia
+      const rawProductLinks = searchArea.find('a[href^="/products/"]')
+        .map((_, el) => $(el).attr('href'))
+        .get()
+        .filter(href => href && href.includes('/products/'));
+
+      console.log("RAW LINKS FOUND:", rawProductLinks.length);
+
+      // DEDUPLICA FORTE PER PAGINA
+      const uniqueLinksInPage = [...new Set(rawProductLinks.map(link => {
+        const url = new URL(link, baseUrl);
+        return url.origin + url.pathname;
+      }))];
+
+      console.log("UNIQUE LINKS IN PAGE:", uniqueLinksInPage.length);
+      summary.totalRawFound += rawProductLinks.length;
+
+      // ELABORAZIONE PRODOTTI
+      for (const cleanUrl of uniqueLinksInPage) {
+        const slug = cleanUrl.split('/').pop() || '';
         
-        if (href) {
-          const absoluteUrl = href.startsWith('http') ? href : `${baseUrl}${href.split('?')[0]}`;
-          const cleanUrl = absoluteUrl.split('?')[0].split('#')[0];
-          const slug = cleanUrl.split('/').pop() || '';
+        if (!slug || globalSeenSlugs.has(slug)) continue;
+        globalSeenSlugs.add(slug);
 
-          if (!slug || !cleanUrl.includes('/products/')) continue;
+        // Controllo Database
+        const existingInDb = await prisma.material.findFirst({
+          where: {
+            OR: [
+              { sourceUrl: cleanUrl },
+              { fraterworksSlug: slug }
+            ]
+          },
+          select: { id: true, name: true }
+        });
 
-          summary.totalFound++;
+        if (existingInDb) summary.alreadyInDatabase++;
 
-          if (seenSlugs.has(slug)) {
-            summary.duplicatesInScan++;
-            continue;
-          }
+        // Titolo (cerchiamo di prenderlo dal testo del link o attributi se possibile, altrimenti fallback)
+        const productData = {
+          title: slug.replace(/-/g, ' ').toUpperCase(),
+          url: cleanUrl,
+          slug,
+          existsInDatabase: !!existingInDb,
+          existingMaterialId: existingInDb?.id || null
+        };
 
-          seenSlugs.add(slug);
-          summary.uniqueFound++;
+        allProducts.push(productData);
 
-          const existingInDb = await prisma.material.findFirst({
-            where: {
-              OR: [
-                { sourceUrl: cleanUrl },
-                { fraterworksSlug: slug }
-              ]
-            },
-            select: { id: true, name: true }
-          });
-
-          if (existingInDb) {
-            summary.alreadyInDatabase++;
-          } else {
-            summary.newProducts++;
-          }
-
-          const product = {
-            title,
-            url: cleanUrl,
-            slug,
-            existsInDatabase: !!existingInDb,
-            existingMaterialId: existingInDb?.id || null
-          };
-
-          allProducts.push(product);
-          foundOnThisPage.push(product);
-
-          if (maxProducts && allProducts.length >= maxProducts) {
-            console.log("MAX PRODUCTS REACHED. STOPPING SCAN.");
-            break;
-          }
-        }
+        if (maxProducts && allProducts.length >= maxProducts) break;
       }
-
-      console.log(`PAGE ${page} COMPLETED. PRODUCTS FOUND:`, foundOnThisPage.length);
 
       if (maxProducts && allProducts.length >= maxProducts) break;
     }
 
+    summary.totalUniqueAcrossPages = allProducts.length;
+
     console.log("-----------------------------------------");
-    console.log("TOTAL UNIQUE PRODUCTS ACROSS RANGE:", allProducts.length);
+    console.log("TOTAL REAL PRODUCTS EXTRACTED:", allProducts.length);
     console.log("SCAN SUMMARY:", summary);
     console.log("-----------------------------------------");
 
