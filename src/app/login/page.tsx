@@ -48,11 +48,14 @@ export default function LoginPage() {
           <p className="text-white/40 text-xs font-bold uppercase tracking-[0.2em]">IFRA_GENERATOR Security Gate</p>
         </div>
 
-        <form onSubmit={handleLogin} className="luxury-card p-8 bg-white/[0.03] border-white/5 space-y-6 relative z-[101]">
+        <form 
+          onSubmit={handleLogin} 
+          className="luxury-card p-8 bg-white/[0.03] border-white/5 space-y-6 relative z-[101] rounded-3xl border shadow-2xl"
+        >
           <div className="space-y-2">
             <label className="text-[10px] font-black uppercase tracking-widest text-white/30 px-1">Password della Piattaforma</label>
             <div className="relative group">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20 group-focus-within:text-primary transition-colors" />
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20 group-focus-within:text-emerald-500 transition-colors" />
               <input
                 type="password"
                 required
@@ -61,12 +64,17 @@ export default function LoginPage() {
                 placeholder="Digita la password..."
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleLogin(e as any);
+                  }
+                }}
               />
             </div>
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 text-red-400 bg-red-400/10 p-3 rounded-xl border border-red-400/20 text-[11px] font-bold">
+            <div className="flex items-center gap-2 text-red-400 bg-red-400/10 p-3 rounded-xl border border-red-400/20 text-[11px] font-bold animate-shake">
               <AlertCircle className="w-4 h-4" />
               {error}
             </div>
@@ -75,7 +83,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-primary text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 flex items-center justify-center gap-2"
+            className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-500 transition-all shadow-xl shadow-emerald-900/20 flex items-center justify-center gap-2"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
             {loading ? "Verifica in corso..." : "Entra nel Sistema"}
